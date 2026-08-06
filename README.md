@@ -1,24 +1,22 @@
 # DITTO Retention Modelling (sBG)
 
 Fits a shifted-Beta-Geometric (sBG) survival model to the Monthly and 3-Month
-subscription cohorts, to replace the hand-tuned retention curve currently in
-`Cohort Modelling` / `Model Assumptions` of the DITTO financial model.
+subscription cohorts, cross-validates it properly (time-series folds, not a
+single arbitrary cutoff), derives the sheet-ready flat-tier churn rates, and
+generates a report explaining exactly what changed, why, how well it's
+validated, and what it does to LTV/CAC.
 
 ## Data source
 
 **Only uses the cohort matrices** in the appendix sheets (`APPENDIX Monthly
-Subscription R`, `APPENDIX 3-Month Subscription R`) — the `MONTH 0, MONTH 1,
-...` count tables and the `RETENTION` % sub-table. It deliberately does **not**
-use the per-subscriber ID/signup/cancellation-date export that sits further
-right in those same sheets — that field isn't reliably maintained.
+Subscription R`, `APPENDIX 3-Month Subscription R`) -- the `MONTH 0, MONTH 1,
+...` count tables and the `RETENTION` % sub-table. Deliberately does **not**
+use the per-subscriber ID/signup/cancellation-date export sitting further
+right in those same sheets -- that field isn't reliably maintained.
 
-For the 3-Month plan specifically: since billing happens every 3 months, raw
-month-by-month counts are billing-event noise (a customer "ships" once but
-that showed up in whichever exact calendar month the charge landed). We
-resample the sheet's own `RETENTION` % table at the actual quarterly
-checkpoints (month 0, 3, 6, 9, ...) rather than at every calendar month —
-this is the same quarterly-checkpoint logic the existing Cohort Modelling tab
-already uses for its 3-Month curve, just fitted with sBG instead of hand-tuned.
+For 3-Month specifically: billing happens every 3 months, so raw month-by-
+month counts are billing-event noise. We resample the sheet's own `RETENTION`
+table at the actual quarterly checkpoints (month 0, 3, 6, 9, ...) instead.
 
 ## Files
 
@@ -29,40 +27,59 @@ data/
 src/
   extract_data.py          pulls the two CSVs above out of model.xlsx
   sbg_model.py             sBG survival function, MLE fit, log-likelihood
-  run_backtest.py          fits both segments + walk-forward backtest vs the
-                           current hand-tuned sheet curve
+  cross_validate.py        multi-fold time-series CV (expanding window,
+                            non-overlapping test windows -- the TimeSeriesSplit
+                            equivalent for cohort data)
+  business_impact.py       replicates the exact LTV/CAC:LTV formula chain
+                            from Cohort Modelling, so we can compute before/
+                            after impact without a full workbook recalc
+  run_pipeline.py          orchestrates everything -> outputs/report.md +
+                            outputs/sheet_updates.csv
 outputs/
-  monthly_sbg_curve.csv    fitted survival curve, month 0-48
-  threemonth_sbg_curve.csv fitted survival curve, cycle 0-16 (= month 0-48)
+  report.md                narrative: what changed, why, validation, impact
+  sheet_updates.csv         same info, machine-readable
 model.xlsx                 source workbook (not committed - see .gitignore)
 ```
 
 ## Running it
 
 ```bash
-pip install openpyxl numpy scipy
+pip install -r requirements.txt
 
 python3 src/extract_data.py     # (re)build the CSVs from model.xlsx
-python3 src/run_backtest.py     # fit + backtest, prints results
+python3 src/run_pipeline.py     # fit + CV + business impact -> outputs/report.md
 ```
 
-## Current results (as of last run)
+Open `outputs/report.md` and paste the "New value" for each listed cell into
+the actual live financial model.
 
-**Monthly** — validated. Walk-forward backtest on 70 held-out cohort-month
-points: sBG MAE 0.0246 vs current sheet curve MAE 0.0387 (sBG wins by ~35%).
+## Important limitation
 
-**3-Month** — full-data fit looks reasonable, but the walk-forward backtest is
-unstable (only 17 cohorts at quarterly resolution → too few held-out points,
-fitted alpha/beta swing depending on cutoff choice). Treat the 3-Month curve
-as provisional until another month or two of data lets the backtest run on
-more held-out points.
+`business_impact.py` hardcodes a handful of base assumptions (CAC, price,
+gross margin) copied from `Cohort Modelling!B1:B12` at the time this was
+built. If those change in the sheet, update the constants at the top of that
+file to match -- they don't auto-sync.
+
+Similarly, `Cohort Modelling!K415` (the 3-Month month-9 fix) was applied by
+hand directly in the workbook already (replacing a formula with a static
+value) -- it won't be re-applied by rerunning this pipeline. Rerunning
+`run_pipeline.py` will tell you what the *current* fitted value would be, so
+you can compare and decide whether to update it again.
+
+## Current results (last run)
+
+**Monthly** -- validated well. Time-series CV (5 folds, 125 held-out points):
+new flat-tier numbers MAE 0.0236 vs old sheet numbers MAE 0.0358 (~34% better).
+Business impact: 1st Yr LTV moves from £135.07 to £129.46 (worse -- the sheet
+was too optimistic about months 7-12).
+
+**3-Month** -- directionally supportive but thinner data (4 folds, 42 held-out
+points, ~38% better on aggregate, but individual folds disagree). Month-9 fix
+alone: 1st Yr LTV improves £126.83 -> £129.93.
 
 ## Next steps
 
-1. Re-run `run_backtest.py` monthly as new Klar data lands (`extract_data.py`
-   will need updating if the appendix sheet layout changes).
-2. Once 3-Month backtest stabilises, write both curves into
-   `Model Assumptions` (replacing the hand-typed retention inputs) and
-   `Cohort Modelling`, and recalc.
-3. Build the Retention Tracker sheet (ML prediction vs current sheet
-   prediction vs actual, frozen at generation date) — not yet built.
+1. Build the Retention Tracker sheet (ML prediction vs current sheet
+   prediction vs actual, frozen at generation date) -- not yet built.
+2. Re-run monthly as new Klar data lands.
+
