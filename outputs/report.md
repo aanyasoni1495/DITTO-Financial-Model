@@ -1,5 +1,35 @@
 # Retention Model Update -- Findings & Cell Changes
 
+## Current plan mix (unaffected by this update)
+
+- Monthly: 30%
+- 3-Month: 65%
+- 6-Month: 0%
+- OTP: 5%
+
+Retention changes affect each plan's LTV, not this mix. If you change the mix itself, that's a separate input (`Cohort Modelling!B8:B11`) and would need re-running the business-impact numbers below.
+
+## Blended AOV impact (Cohort Modelling!row249 + row417, weighted by mix above)
+
+Uses the net-price 3-Month path (`B418`=£81), not the list-price path (`B6`=£100) -- see the note in `business_impact.py` about why these two disagree in the sheet already.
+
+| Month | Old Blended AOV | New Blended AOV | Delta |
+|---|---|---|---|
+| 0 | £53.90 | £53.90 | £+0.00 |
+| 3 | £35.94 | £36.66 | £+0.73 |
+| 6 | £20.20 | £22.67 | £+2.46 |
+| 9 | £13.03 | £14.69 | £+1.66 |
+| 12 | £11.91 | £9.87 | £-2.04 |
+
+## Closing Balance (Cash Flow!row169) -- NOT computed automatically
+
+This pipeline can't recalculate the full workbook (the appendix sheets alone are too large for a reliable automated recalc). To get this number: paste the values below into your live copy, let Excel recalculate, save it, then run:
+
+```python
+from business_impact import diff_closing_balance
+diff_closing_balance('model_before.xlsx', 'model_after.xlsx')
+```
+
 ## `Model Assumptions!C32`
 
 - **Old value:** 0.0400

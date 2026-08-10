@@ -196,9 +196,42 @@ def run_threemonth(report_rows):
     return alpha, beta, curve
 
 
-def write_report(report_rows):
+def write_report(report_rows, monthly_curve, threemonth_curve):
     with open("outputs/report.md", "w") as f:
         f.write("# Retention Model Update -- Findings & Cell Changes\n\n")
+
+        f.write("## Current plan mix (unaffected by this update)\n\n")
+        f.write(f"- Monthly: {bi.MIX_MONTHLY*100:.0f}%\n")
+        f.write(f"- 3-Month: {bi.MIX_3MONTH*100:.0f}%\n")
+        f.write(f"- 6-Month: {bi.MIX_6MONTH*100:.0f}%\n")
+        f.write(f"- OTP: {bi.MIX_OTP*100:.0f}%\n\n")
+        f.write("Retention changes affect each plan's LTV, not this mix. If you "
+                "change the mix itself, that's a separate input (`Cohort Modelling!B8:B11`) "
+                "and would need re-running the business-impact numbers below.\n\n")
+
+        f.write("## Blended AOV impact (Cohort Modelling!row249 + row417, weighted by mix above)\n\n")
+        f.write("Uses the net-price 3-Month path (`B418`=£81), not the list-price path "
+                "(`B6`=£100) -- see the note in `business_impact.py` about why these "
+                "two disagree in the sheet already.\n\n")
+        f.write("| Month | Old Blended AOV | New Blended AOV | Delta |\n")
+        f.write("|---|---|---|---|\n")
+        old_curve_3 = [1.0, 0.5817337683, 0.3246622985, 0.1952197031, 0.1800085743,
+                       0.1694226301, 0.159459224, 0.150081746, 0.1426971238]
+        old_curve_m = SHEET_MONTHLY
+        for month in [0, 3, 6, 9, 12]:
+            old_aov = bi.blended_aov(old_curve_m, old_curve_3, month)
+            new_aov = bi.blended_aov(monthly_curve, threemonth_curve, month)
+            f.write(f"| {month} | £{old_aov:.2f} | £{new_aov:.2f} | £{new_aov-old_aov:+.2f} |\n")
+        f.write("\n")
+
+        f.write("## Closing Balance (Cash Flow!row169) -- NOT computed automatically\n\n")
+        f.write("This pipeline can't recalculate the full workbook (the appendix sheets "
+                "alone are too large for a reliable automated recalc). To get this number: "
+                "paste the values below into your live copy, let Excel recalculate, save it, "
+                "then run:\n\n")
+        f.write("```python\nfrom business_impact import diff_closing_balance\n"
+                "diff_closing_balance('model_before.xlsx', 'model_after.xlsx')\n```\n\n")
+
         for row in report_rows:
             f.write(f"## `{row['cell']}`\n\n")
             f.write(f"- **Old value:** {row['old_value']}\n")
@@ -218,6 +251,6 @@ def write_report(report_rows):
 
 if __name__ == "__main__":
     report_rows = []
-    run_monthly(report_rows)
-    run_threemonth(report_rows)
-    write_report(report_rows)
+    _, _, monthly_curve = run_monthly(report_rows)
+    _, _, threemonth_curve = run_threemonth(report_rows)
+    write_report(report_rows, monthly_curve, threemonth_curve)
