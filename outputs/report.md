@@ -14,19 +14,19 @@ All assumptions (prices, mix, CAC, current curves) were read live from `model.xl
 | Plan | sBG MAE | sBG confidence | BdW MAE | BdW confidence | Winner | Margin |
 |---|---|---|---|---|---|---|
 | Monthly | 0.0241 | HIGH | 0.0234 | HIGH | **BdW** | 3.1% |
-| 3-Month | 0.0527 | LOW | 0.0578 | LOW | **sBG** | 8.8% |
+| 3-Month | 0.0527 | LOW | 0.0579 | LOW | **sBG** | 9.0% |
 
 ## Cell-by-cell values -- one row per cell, both models shown
 
 | Plan | Cell | Old value | sBG value | BdW value | Winner | Recommended value |
 |---|---|---|---|---|---|---|
 | Monthly | `Model Assumptions!C32` | (read live from sheet) | 0.0979 | 0.1035 | **BdW** | 0.1035 |
-| Monthly | `Cohort Modelling!B20` | 0.0400 | 0.0979 | 0.1035 | **BdW** | 0.1035 |
+| Monthly | `Cohort Modelling!B20` | 0.0300 | 0.0979 | 0.1035 | **BdW** | 0.1035 |
 | Monthly | `Model Assumptions!C33` | (read live from sheet) | 0.0575 | 0.0635 | **BdW** | 0.0635 |
 | Monthly | `Model Assumptions!C34` | (read live from sheet) | 0.0315 | 0.0360 | **BdW** | 0.0360 |
-| 3-Month | `Cohort Modelling!K415 (I415, J415 flattened to =H415)` | 0.1952 (via noisy compounded formula) | 0.236564 | 0.239102 | **sBG** | 0.236564 |
-| 3-Month | `Model Assumptions!C43` | (read live) | 0.1312 | 0.0962 | **sBG** | 0.1312 |
-| 3-Month | `Model Assumptions!C44` | (read live) | 0.1156 | 0.0627 | **sBG** | 0.1156 |
+| 3-Month | `Cohort Modelling!K415 (I415, J415 flattened to =H415)` | 0.1952 (via noisy compounded formula) | 0.236565 | 0.239111 | **sBG** | 0.236565 |
+| 3-Month | `Model Assumptions!C43` | (read live) | 0.1312 | 0.0961 | **sBG** | 0.1312 |
+| 3-Month | `Model Assumptions!C44` | (read live) | 0.1156 | 0.0626 | **sBG** | 0.1156 |
 | 3-Month | `Model Assumptions!C45` | (read live) | 0.0901 | 0.0330 | **sBG** | 0.0901 |
 
 **Use the 'Recommended value' column when pasting into the sheet.** The 'sBG value' and 'BdW value' columns are both shown for transparency -- only one of them (matching 'Winner') is actually recommended per plan.
@@ -44,48 +44,48 @@ All assumptions (prices, mix, CAC, current curves) were read live from `model.xl
 - **Old value:** (read live from sheet)
 - **sBG value:** 0.0979 (confidence: HIGH)
 - **BdW value:** 0.1035 (confidence: HIGH)
-- **Winner: BdW** -- BdW won held-out cross-validation: sBG MAE=0.0241 (HIGH) vs BdW MAE=0.0234 (HIGH), by 3.1%. Improved on aggregate (0.0234 vs 0.0358), won 80% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
+- **Winner: BdW** -- BdW won held-out cross-validation: sBG MAE=0.0241 (HIGH) vs BdW MAE=0.0234 (HIGH), by 3.1%. Improved on aggregate (0.0234 vs 0.0390), won 100% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
 - **Recommended value (use this): 0.1035**
 - **Finding:** Monthly M7-12 churn.
-- **Business impact:** sBG: 1st Yr LTV: £135.07 -> £129.46 (WORSENS); CAC:LTV WORSENS | BdW: 1st Yr LTV: £135.07 -> £128.97 (WORSENS); CAC:LTV WORSENS
+- **Business impact:** sBG: 1st Yr LTV: £136.13 -> £129.46 (WORSENS); CAC:LTV WORSENS | BdW: 1st Yr LTV: £136.13 -> £128.97 (WORSENS); CAC:LTV WORSENS
 
 ### [Monthly] `Cohort Modelling!B20`
 
-- **Old value:** 0.0400
+- **Old value:** 0.0300
 - **sBG value:** 0.0979 (confidence: HIGH)
 - **BdW value:** 0.1035 (confidence: HIGH)
-- **Winner: BdW** -- BdW won held-out cross-validation: sBG MAE=0.0241 (HIGH) vs BdW MAE=0.0234 (HIGH), by 3.1%. Improved on aggregate (0.0234 vs 0.0358), won 80% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
+- **Winner: BdW** -- BdW won held-out cross-validation: sBG MAE=0.0241 (HIGH) vs BdW MAE=0.0234 (HIGH), by 3.1%. Improved on aggregate (0.0234 vs 0.0390), won 100% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
 - **Recommended value (use this): 0.1035**
 - **Finding:** Monthly M7-12 churn (cell the live curve actually uses).
-- **Business impact:** sBG: 1st Yr LTV: £135.07 -> £129.46 (WORSENS); CAC:LTV WORSENS | BdW: 1st Yr LTV: £135.07 -> £128.97 (WORSENS); CAC:LTV WORSENS
+- **Business impact:** sBG: 1st Yr LTV: £136.13 -> £129.46 (WORSENS); CAC:LTV WORSENS | BdW: 1st Yr LTV: £136.13 -> £128.97 (WORSENS); CAC:LTV WORSENS
 
 ### [Monthly] `Model Assumptions!C33`
 
 - **Old value:** (read live from sheet)
 - **sBG value:** 0.0575 (confidence: HIGH)
 - **BdW value:** 0.0635 (confidence: HIGH)
-- **Winner: BdW** -- BdW won held-out cross-validation: sBG MAE=0.0241 (HIGH) vs BdW MAE=0.0234 (HIGH), by 3.1%. Improved on aggregate (0.0234 vs 0.0358), won 80% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
+- **Winner: BdW** -- BdW won held-out cross-validation: sBG MAE=0.0241 (HIGH) vs BdW MAE=0.0234 (HIGH), by 3.1%. Improved on aggregate (0.0234 vs 0.0390), won 100% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
 - **Recommended value (use this): 0.0635**
 - **Finding:** Monthly M13-24 churn.
-- **Business impact:** sBG: 1st Yr LTV: £135.07 -> £129.46 (WORSENS); CAC:LTV WORSENS | BdW: 1st Yr LTV: £135.07 -> £128.97 (WORSENS); CAC:LTV WORSENS
+- **Business impact:** sBG: 1st Yr LTV: £136.13 -> £129.46 (WORSENS); CAC:LTV WORSENS | BdW: 1st Yr LTV: £136.13 -> £128.97 (WORSENS); CAC:LTV WORSENS
 
 ### [Monthly] `Model Assumptions!C34`
 
 - **Old value:** (read live from sheet)
 - **sBG value:** 0.0315 (confidence: HIGH)
 - **BdW value:** 0.0360 (confidence: HIGH)
-- **Winner: BdW** -- BdW won held-out cross-validation: sBG MAE=0.0241 (HIGH) vs BdW MAE=0.0234 (HIGH), by 3.1%. Improved on aggregate (0.0234 vs 0.0358), won 80% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
+- **Winner: BdW** -- BdW won held-out cross-validation: sBG MAE=0.0241 (HIGH) vs BdW MAE=0.0234 (HIGH), by 3.1%. Improved on aggregate (0.0234 vs 0.0390), won 100% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
 - **Recommended value (use this): 0.0360**
 - **Finding:** Monthly post-M24 churn.
-- **Business impact:** sBG: 1st Yr LTV: £135.07 -> £129.46 (WORSENS); CAC:LTV WORSENS | BdW: 1st Yr LTV: £135.07 -> £128.97 (WORSENS); CAC:LTV WORSENS
+- **Business impact:** sBG: 1st Yr LTV: £136.13 -> £129.46 (WORSENS); CAC:LTV WORSENS | BdW: 1st Yr LTV: £136.13 -> £128.97 (WORSENS); CAC:LTV WORSENS
 
 ### [3-Month] `Cohort Modelling!K415 (I415, J415 flattened to =H415)`
 
 - **Old value:** 0.1952 (via noisy compounded formula)
-- **sBG value:** 0.236564 (confidence: LOW)
-- **BdW value:** 0.239102 (confidence: LOW)
-- **Winner: sBG** -- sBG won held-out cross-validation: sBG MAE=0.0527 (LOW) vs BdW MAE=0.0578 (LOW), by 8.8%. Aggregate MAE improved (0.0527 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
-- **Recommended value (use this): 0.236564**
+- **sBG value:** 0.236565 (confidence: LOW)
+- **BdW value:** 0.239111 (confidence: LOW)
+- **Winner: sBG** -- sBG won held-out cross-validation: sBG MAE=0.0527 (LOW) vs BdW MAE=0.0579 (LOW), by 9.0%. Aggregate MAE improved (0.0527 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
+- **Recommended value (use this): 0.236565**
 - **Finding:** 3-Month month-9 retention.
 - **Business impact:** sBG: 1st Yr LTV: £126.83 -> £129.93 (IMPROVES); CAC:LTV IMPROVES | BdW: 1st Yr LTV: £126.83 -> £130.12 (IMPROVES); CAC:LTV IMPROVES
 
@@ -93,8 +93,8 @@ All assumptions (prices, mix, CAC, current curves) were read live from `model.xl
 
 - **Old value:** (read live)
 - **sBG value:** 0.1312 (confidence: LOW)
-- **BdW value:** 0.0962 (confidence: LOW)
-- **Winner: sBG** -- sBG won held-out cross-validation: sBG MAE=0.0527 (LOW) vs BdW MAE=0.0578 (LOW), by 8.8%. Aggregate MAE improved (0.0527 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
+- **BdW value:** 0.0961 (confidence: LOW)
+- **Winner: sBG** -- sBG won held-out cross-validation: sBG MAE=0.0527 (LOW) vs BdW MAE=0.0579 (LOW), by 9.0%. Aggregate MAE improved (0.0527 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
 - **Recommended value (use this): 0.1312**
 - **Finding:** 3-Month M7-12 churn (monthly-equiv.).
 - **Business impact:** Affects 2yr/3yr/4yr LTV, not 1st Yr LTV -- not separately computed.
@@ -103,8 +103,8 @@ All assumptions (prices, mix, CAC, current curves) were read live from `model.xl
 
 - **Old value:** (read live)
 - **sBG value:** 0.1156 (confidence: LOW)
-- **BdW value:** 0.0627 (confidence: LOW)
-- **Winner: sBG** -- sBG won held-out cross-validation: sBG MAE=0.0527 (LOW) vs BdW MAE=0.0578 (LOW), by 8.8%. Aggregate MAE improved (0.0527 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
+- **BdW value:** 0.0626 (confidence: LOW)
+- **Winner: sBG** -- sBG won held-out cross-validation: sBG MAE=0.0527 (LOW) vs BdW MAE=0.0579 (LOW), by 9.0%. Aggregate MAE improved (0.0527 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
 - **Recommended value (use this): 0.1156**
 - **Finding:** 3-Month M13-24 churn (monthly-equiv.).
 - **Business impact:** Affects 2yr/3yr/4yr LTV, not 1st Yr LTV -- not separately computed.
@@ -114,7 +114,7 @@ All assumptions (prices, mix, CAC, current curves) were read live from `model.xl
 - **Old value:** (read live)
 - **sBG value:** 0.0901 (confidence: LOW)
 - **BdW value:** 0.0330 (confidence: LOW)
-- **Winner: sBG** -- sBG won held-out cross-validation: sBG MAE=0.0527 (LOW) vs BdW MAE=0.0578 (LOW), by 8.8%. Aggregate MAE improved (0.0527 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
+- **Winner: sBG** -- sBG won held-out cross-validation: sBG MAE=0.0527 (LOW) vs BdW MAE=0.0579 (LOW), by 9.0%. Aggregate MAE improved (0.0527 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
 - **Recommended value (use this): 0.0901**
 - **Finding:** 3-Month post-M24 churn (monthly-equiv.).
 - **Business impact:** Affects 2yr/3yr/4yr LTV, not 1st Yr LTV -- not separately computed.
