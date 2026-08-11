@@ -25,10 +25,17 @@ class FoldResult:
     n_test_points: int
     mae_new: float
     mae_old: float
-    alpha: float
-    beta: float
+    params: tuple  # (alpha, beta) for sBG, (alpha, beta, c) for BdW -- whatever fit_fn returns
     hit_bound: bool  # True if the fit landed suspiciously close to the optimizer's bounds
     # (a sign of too little training data for this fold -- see summarize())
+
+    @property
+    def alpha(self):
+        return self.params[0]
+
+    @property
+    def beta(self):
+        return self.params[1]
 
 
 def _calendar_range(cleaned):
@@ -43,15 +50,25 @@ def _calendar_range(cleaned):
 
 
 def time_series_cv(cleaned, curve_fn, old_curve, n_splits=5, min_train_frac=0.5,
-                    max_t=None):
+                    max_t=None, fit_fn=fit_sbg, bound_check=None):
     """
     cleaned: {cohort: {t: survivors}}, already monotonic-cleaned
-    curve_fn: function(alpha, beta, max_t) -> list of survival fractions
-              (pass predict_curve directly for the raw curve, or a wrapper
-              that applies the flat-tier approximation for that check)
+    curve_fn: function(*params, max_t) -> list of survival fractions
+              (pass predict_curve for sBG, predict_curve_bdw for BdW, or a
+              flat-tier wrapper -- must accept the same number of positional
+              params as fit_fn returns, then max_t)
     old_curve: the current sheet's curve (same indexing as curve_fn's output),
                to compare against
+    fit_fn: function(obs_list) -> tuple of fitted params. Defaults to sBG's
+            fit_sbg (2 params); pass bdw_model.fit_bdw for BdW (3 params).
+    bound_check: function(params) -> bool, True if the fit looks degenerate
+                 (hit the optimizer's bounds). Defaults to sBG's alpha/beta
+                 check; pass a BdW-aware version if using fit_bdw.
     """
+    if bound_check is None:
+        bound_check = lambda params: (params[0] > 500 or params[1] > 500
+                                       or params[0] < 0.01 or params[1] < 0.01)
+
     lo, hi = _calendar_range(cleaned)
     span = hi - lo
     if max_t is None:
@@ -68,8 +85,8 @@ def time_series_cv(cleaned, curve_fn, old_curve, n_splits=5, min_train_frac=0.5,
         obs_train = build_obs(cleaned, cutoff_calendar=cutoff)
         if not obs_train:
             continue
-        alpha, beta = fit_sbg(obs_train)
-        new_curve = curve_fn(alpha, beta, max_t)
+        params = fit_fn(obs_train)
+        new_curve = curve_fn(*params, max_t)
 
         errs_new, errs_old = [], []
         for cohort, series in cleaned.items():
@@ -90,14 +107,13 @@ def time_series_cv(cleaned, curve_fn, old_curve, n_splits=5, min_train_frac=0.5,
 
         if not errs_new:
             continue
-        hit_bound = alpha > 500 or beta > 500 or alpha < 0.01 or beta < 0.01
         results.append(FoldResult(
             fold=i, cutoff_calendar=cutoff,
             n_train_points=sum(len(o.defections) + 1 for o in obs_train),
             n_test_points=len(errs_new),
             mae_new=sum(errs_new) / len(errs_new),
             mae_old=sum(errs_old) / len(errs_old),
-            alpha=alpha, beta=beta, hit_bound=hit_bound,
+            params=tuple(params), hit_bound=bound_check(params),
         ))
     return results
 

@@ -81,6 +81,36 @@ Computed by `confidence_rating()` in `cross_validate.py`:
 This isn't a vibe -- every rating in the report is followed by the actual
 numbers (fold win rate, point count, MAE comparison) that produced it.
 
+## BdW comparison (Fader, Hardie, Liu, Davin & Steenburgh, 2018)
+
+`src/bdw_model.py` implements the beta-discrete-Weibull model, sBG's more
+flexible sibling (adds one parameter, c, letting an individual's own churn
+probability drift over time, not just the population mix). `src/compare_models.py`
+fits both models on identical data through identical CV folds and reports
+which one genuinely wins on HELD-OUT accuracy (comparing training fit would
+be meaningless -- BdW is mathematically identical to sBG when c=1, so it can
+never look worse on data it was fit on).
+
+```bash
+python3 src/compare_models.py
+```
+
+**Result (last run):**
+
+- **Monthly**: BdW beats sBG by 3.1% on held-out data (MAE 0.0234 vs 0.0241),
+  both HIGH confidence, fitted c=0.93 (close to sBG's implicit c=1) -- a
+  small, genuine improvement worth adopting.
+- **3-Month**: BdW is 9.7% WORSE than sBG on held-out data (MAE 0.0578 vs
+  0.0527), both LOW confidence, and BdW's fits are noticeably more unstable
+  fold-to-fold (alpha/beta swinging between 0.09 and 83 across folds, worse
+  than sBG's own instability there) -- the extra parameter is overfitting
+  3-Month's already-thin data, not helping. Keep sBG for 3-Month.
+
+This is exactly the risk flagged before building it: more flexibility only
+helps when there's enough data to support it. Worth re-running this
+comparison monthly alongside `run_pipeline.py` -- as 3-Month accumulates more
+mature cohorts, BdW may eventually earn its place there too.
+
 ## Important limitation: Closing Balance
 
 `business_impact.py` includes `diff_closing_balance()`, but this pipeline

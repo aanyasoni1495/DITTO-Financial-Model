@@ -66,7 +66,46 @@ def compare(old_val, new_val, label, fmt="{:.2f}", higher_is_better=True):
     return dict(label=label, old=old_val, new=new_val, delta=delta, pct=pct, direction=direction)
 
 
-def diff_closing_balance(old_xlsx_path, new_xlsx_path):
+def check_cash_floor(xlsx_path, floor=1_000_000):
+    """
+    Reads Cash Flow!row169 ('CLOSING BALANCE') from an ALREADY-RECALCULATED
+    workbook and reports every month that breaches the given floor, and by
+    how much. This is step 1 of "how do I keep closing balance above £X" --
+    you need to know the size and timing of the gap before picking a lever.
+    """
+    import openpyxl
+
+    wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=True)
+    ws = wb["Cash Flow"]
+    rows = list(ws.iter_rows(values_only=True))
+    dates, closing = rows[0], rows[168]
+
+    breaches = []
+    worst = None
+    for i in range(1, len(closing)):
+        v = closing[i]
+        if not isinstance(v, (int, float)):
+            continue
+        d = dates[i]
+        label = d.strftime("%Y-%m") if hasattr(d, "strftime") else str(d)
+        if v < floor:
+            deficit = floor - v
+            breaches.append((label, v, deficit))
+            if worst is None or deficit > worst[2]:
+                worst = (label, v, deficit)
+
+    print(f"Floor: £{floor:,.0f}")
+    if not breaches:
+        print("No breaches -- closing balance stays above the floor throughout.")
+        return breaches, None
+
+    print(f"\n{len(breaches)} month(s) breach the floor:")
+    print(f"{'Month':<10}{'Closing Balance':<20}{'Deficit vs floor'}")
+    for label, v, deficit in breaches:
+        print(f"{label:<10}£{v:<19,.0f}£{deficit:,.0f}")
+    print(f"\nWorst month: {worst[0]}, balance £{worst[1]:,.0f}, "
+          f"deficit £{worst[2]:,.0f} below floor")
+    return breaches, worst
     """
     Reads Cash Flow!row169 ('CLOSING BALANCE') from two ALREADY-RECALCULATED
     workbooks. This pipeline can't recalculate the full workbook itself (see
