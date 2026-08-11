@@ -47,8 +47,10 @@ src/
                              by the live-read state (no hardcoded constants)
   run_pipeline.py            orchestrates everything -> outputs/report.md
 outputs/
-  report.md                  narrative: mix, AOV, per-cell findings + confidence
-  sheet_updates.csv          same info, machine-readable
+  report.md                  narrative markdown (headers, bold, tables)
+  report.csv                  same content, plain text, no markdown syntax --
+                               opens cleanly in Excel/Sheets/Numbers
+  sheet_updates.csv          terse machine-readable version
 model.xlsx                   source workbook (not committed - see .gitignore)
 ```
 

@@ -100,6 +100,10 @@ def run_plan_monthly(report_rows, state, comparisons):
     old_r_13_24 = geometric_mean_rate(current_curve, 12, 24) if len(current_curve) > 24 else old_r_7_12
     old_r_post24 = geometric_mean_rate(current_curve, 24, 48) if len(current_curve) > 48 else old_r_13_24
 
+    # compute BOTH models' values first, keyed by model name, so each cell can
+    # be written as ONE row with both models' columns side by side
+    per_model_values = {}
+    per_model_impact = {}
     for model_name, res in results.items():
         spec = MODELS[model_name]
         curve = spec["curve_fn"](*res["params"], 48)  # extend past CV's max_t=24 for the post-24 tier
@@ -113,23 +117,35 @@ def run_plan_monthly(report_rows, state, comparisons):
         new_ltv, new_cac_ltv = bi.monthly_ltv_and_cac_ratio(new_curve_full, state)
         impact_ltv = bi.compare(old_ltv, new_ltv, f"[{model_name}] Monthly 1st Yr LTV", "£{:.2f}")
         impact_cac = bi.compare(old_cac_ltv, new_cac_ltv, f"[{model_name}] Monthly CAC:LTV", "{:.3f}x")
-        recommended = " (RECOMMENDED)" if model_name == winner else " (not recommended -- see comparison)"
+        per_model_values[model_name] = dict(c32=r_7_12, b20=r_7_12, c33=r_13_24, c34=r_post24)
+        per_model_impact[model_name] = (
+            f"1st Yr LTV: £{impact_ltv['old']:.2f} -> £{impact_ltv['new']:.2f} "
+            f"({impact_ltv['direction']}); CAC:LTV {impact_cac['direction']}")
 
-        for cell, old, new, tag in [
-            ("Model Assumptions!C32", None, r_7_12, "M7-12 churn"),
-            ("Cohort Modelling!B20", old_r_7_12, r_7_12, "M7-12 churn (cell the live curve actually uses)"),
-            ("Model Assumptions!C33", None, r_13_24, "M13-24 churn"),
-            ("Model Assumptions!C34", None, r_post24, "post-M24 churn"),
-        ]:
-            old_display = f"{old:.4f}" if old is not None else "(read live from sheet)"
-            report_rows.append(dict(
-                plan="Monthly", model=model_name + recommended, cell=cell,
-                old_value=old_display, new_value=f"{new:.4f}",
-                finding=f"Monthly {tag}: fit params {res['params']} on {n_points} real data points.",
-                confidence=res["confidence"], confidence_reason=res["confidence_reason"],
-                business_impact=(f"1st Yr LTV: £{impact_ltv['old']:.2f} -> £{impact_ltv['new']:.2f} "
-                                  f"({impact_ltv['direction']}); CAC:LTV {impact_cac['direction']}"),
-            ))
+    win_reason = (
+        f"{winner} won held-out cross-validation: sBG MAE={sbg_mae:.4f} ({results['sBG']['confidence']}) "
+        f"vs BdW MAE={bdw_mae:.4f} ({results['BdW']['confidence']}), by {pct:.1f}%. "
+        f"{results[winner]['confidence_reason']}"
+    )
+
+    for cell, old, key, tag in [
+        ("Model Assumptions!C32", None, "c32", "M7-12 churn"),
+        ("Cohort Modelling!B20", old_r_7_12, "b20", "M7-12 churn (cell the live curve actually uses)"),
+        ("Model Assumptions!C33", None, "c33", "M13-24 churn"),
+        ("Model Assumptions!C34", None, "c34", "post-M24 churn"),
+    ]:
+        old_display = f"{old:.4f}" if old is not None else "(read live from sheet)"
+        report_rows.append(dict(
+            plan="Monthly", cell=cell,
+            old_value=old_display,
+            sbg_value=f"{per_model_values['sBG'][key]:.4f}",
+            bdw_value=f"{per_model_values['BdW'][key]:.4f}",
+            recommended_value=f"{per_model_values[winner][key]:.4f}",
+            winner=winner, win_reason=win_reason,
+            finding=f"Monthly {tag}.",
+            sbg_confidence=results["sBG"]["confidence"], bdw_confidence=results["BdW"]["confidence"],
+            business_impact=f"sBG: {per_model_impact['sBG']} | BdW: {per_model_impact['BdW']}",
+        ))
     return results
 
 
@@ -164,6 +180,8 @@ def run_plan_threemonth(report_rows, state, comparisons):
 
     old_month9 = current_curve[3] if len(current_curve) > 3 else current_curve[-1]
 
+    per_model_values = {}
+    per_model_impact = {}
     for model_name, res in results.items():
         spec = MODELS[model_name]
         curve = spec["curve_fn"](*res["params"], 16)  # extend past CV's max_t=8
@@ -175,30 +193,39 @@ def run_plan_threemonth(report_rows, state, comparisons):
         new_ltv, new_cac_ltv = bi.threemonth_ltv_and_cac_ratio(month9_val, state)
         impact_ltv = bi.compare(old_ltv, new_ltv, f"[{model_name}] 3-Month 1st Yr LTV", "£{:.2f}")
         impact_cac = bi.compare(old_cac_ltv, new_cac_ltv, f"[{model_name}] 3-Month CAC:LTV", "{:.3f}x")
-        recommended = " (RECOMMENDED)" if model_name == winner else " (not recommended -- see comparison)"
+        per_model_values[model_name] = dict(
+            k415=month9_val, c43=r_9_12, c44=r_13_24, c45=r_post24)
+        per_model_impact[model_name] = (
+            f"1st Yr LTV: £{impact_ltv['old']:.2f} -> £{impact_ltv['new']:.2f} "
+            f"({impact_ltv['direction']}); CAC:LTV {impact_cac['direction']}")
 
+    win_reason = (
+        f"{winner} won held-out cross-validation: sBG MAE={sbg_mae:.4f} ({results['sBG']['confidence']}) "
+        f"vs BdW MAE={bdw_mae:.4f} ({results['BdW']['confidence']}), by {pct:.1f}%. "
+        f"{results[winner]['confidence_reason']}"
+    )
+
+    for cell, old_display, key, tag, extra_impact in [
+        ("Cohort Modelling!K415 (I415, J415 flattened to =H415)",
+         f"{old_month9:.4f} (via noisy compounded formula)", "k415", "month-9 retention", True),
+        ("Model Assumptions!C43", "(read live)", "c43", "M7-12 churn (monthly-equiv.)", False),
+        ("Model Assumptions!C44", "(read live)", "c44", "M13-24 churn (monthly-equiv.)", False),
+        ("Model Assumptions!C45", "(read live)", "c45", "post-M24 churn (monthly-equiv.)", False),
+    ]:
+        fmt = "{:.6f}" if key == "k415" else "{:.4f}"
+        business_impact = (f"sBG: {per_model_impact['sBG']} | BdW: {per_model_impact['BdW']}" if extra_impact
+                            else "Affects 2yr/3yr/4yr LTV, not 1st Yr LTV -- not separately computed.")
         report_rows.append(dict(
-            plan="3-Month", model=model_name + recommended,
-            cell="Cohort Modelling!K415 (I415, J415 flattened to =H415)",
-            old_value=f"{old_month9:.4f} (via noisy compounded formula)",
-            new_value=f"{month9_val:.6f}",
-            finding=f"3-Month month-9 retention: fit params {res['params']} on {n_points} real data points.",
-            confidence=res["confidence"], confidence_reason=res["confidence_reason"],
-            business_impact=(f"1st Yr LTV: £{impact_ltv['old']:.2f} -> £{impact_ltv['new']:.2f} "
-                              f"({impact_ltv['direction']}); CAC:LTV {impact_cac['direction']}"),
+            plan="3-Month", cell=cell,
+            old_value=old_display,
+            sbg_value=fmt.format(per_model_values["sBG"][key]),
+            bdw_value=fmt.format(per_model_values["BdW"][key]),
+            recommended_value=fmt.format(per_model_values[winner][key]),
+            winner=winner, win_reason=win_reason,
+            finding=f"3-Month {tag}.",
+            sbg_confidence=results["sBG"]["confidence"], bdw_confidence=results["BdW"]["confidence"],
+            business_impact=business_impact,
         ))
-        for cell, new, tag in [
-            ("Model Assumptions!C43", r_9_12, "M7-12 churn (monthly-equiv.)"),
-            ("Model Assumptions!C44", r_13_24, "M13-24 churn (monthly-equiv.)"),
-            ("Model Assumptions!C45", r_post24, "post-M24 churn (monthly-equiv.)"),
-        ]:
-            report_rows.append(dict(
-                plan="3-Month", model=model_name + recommended, cell=cell,
-                old_value="(read live)", new_value=f"{new:.4f}",
-                finding=f"3-Month {tag}: derived from the same fit as month-9 above.",
-                confidence=res["confidence"], confidence_reason=res["confidence_reason"],
-                business_impact="Affects 2yr/3yr/4yr LTV, not 1st Yr LTV -- not separately computed.",
-            ))
     return results
 
 
@@ -207,8 +234,8 @@ def write_report(report_rows, comparisons, state):
         f.write("# Retention Model Update -- sBG vs BdW, Both Plans\n\n")
         f.write("All assumptions (prices, mix, CAC, current curves) were read live from "
                 "`model.xlsx` at run time. Both models are fit and cross-validated for both "
-                "plans; each plan's comparison section recommends whichever model actually "
-                "wins on held-out accuracy for that plan -- they are not assumed to be the same.\n\n")
+                "plans; each plan uses whichever model actually wins on held-out accuracy for "
+                "that plan -- they are not assumed to be the same.\n\n")
 
         f.write("## Current plan mix (unaffected by any model choice)\n\n")
         f.write(f"- Monthly: {state['mix_monthly']*100:.0f}%\n")
@@ -216,15 +243,24 @@ def write_report(report_rows, comparisons, state):
         f.write(f"- 6-Month: {state['mix_6month']*100:.0f}%\n")
         f.write(f"- OTP: {state['mix_otp']*100:.0f}%\n\n")
 
-        f.write("## Model comparison, side by side\n\n")
+        f.write("## Model comparison, by plan\n\n")
         f.write("| Plan | sBG MAE | sBG confidence | BdW MAE | BdW confidence | Winner | Margin |\n")
         f.write("|---|---|---|---|---|---|---|\n")
         for plan, c in comparisons.items():
             f.write(f"| {plan} | {c['sbg_mae']:.4f} | {c['sbg_conf']} | {c['bdw_mae']:.4f} | "
                     f"{c['bdw_conf']} | **{c['winner']}** | {c['pct']:.1f}% |\n")
-        f.write("\n**Recommendation:** use each plan's winning model's cell values below "
-                "(marked RECOMMENDED); ignore the other model's rows for actual sheet updates "
-                "-- they're shown for transparency, not for use.\n\n")
+        f.write("\n")
+
+        f.write("## Cell-by-cell values -- one row per cell, both models shown\n\n")
+        f.write("| Plan | Cell | Old value | sBG value | BdW value | Winner | Recommended value |\n")
+        f.write("|---|---|---|---|---|---|---|\n")
+        for row in report_rows:
+            f.write(f"| {row['plan']} | `{row['cell']}` | {row['old_value']} | "
+                    f"{row['sbg_value']} | {row['bdw_value']} | **{row['winner']}** | "
+                    f"{row['recommended_value']} |\n")
+        f.write("\n**Use the 'Recommended value' column when pasting into the sheet.** The "
+                "'sBG value' and 'BdW value' columns are both shown for transparency -- only "
+                "one of them (matching 'Winner') is actually recommended per plan.\n\n")
 
         f.write("## Confidence rating key\n\n")
         f.write("- **HIGH**: beats current numbers on held-out data, wins a large majority of "
@@ -234,12 +270,15 @@ def write_report(report_rows, comparisons, state):
                 "least one fold (a sign of insufficient data, common for BdW's extra parameter "
                 "on the 3-Month plan specifically)\n\n")
 
+        f.write("## Detail per cell\n\n")
         for row in report_rows:
-            f.write(f"## [{row['plan']}] `{row['cell']}` -- {row['model']}\n\n")
+            f.write(f"### [{row['plan']}] `{row['cell']}`\n\n")
             f.write(f"- **Old value:** {row['old_value']}\n")
-            f.write(f"- **New value:** {row['new_value']}\n")
+            f.write(f"- **sBG value:** {row['sbg_value']} (confidence: {row['sbg_confidence']})\n")
+            f.write(f"- **BdW value:** {row['bdw_value']} (confidence: {row['bdw_confidence']})\n")
+            f.write(f"- **Winner: {row['winner']}** -- {row['win_reason']}\n")
+            f.write(f"- **Recommended value (use this): {row['recommended_value']}**\n")
             f.write(f"- **Finding:** {row['finding']}\n")
-            f.write(f"- **Confidence: {row['confidence']}** -- {row['confidence_reason']}\n")
             f.write(f"- **Business impact:** {row['business_impact']}\n\n")
 
     with open("outputs/sheet_updates.csv", "w", newline="") as f:
@@ -247,7 +286,54 @@ def write_report(report_rows, comparisons, state):
         w.writeheader()
         w.writerows(report_rows)
 
-    print("\nWrote outputs/report.md and outputs/sheet_updates.csv")
+    # Full readable report as CSV -- same content as report.md, but no
+    # markdown syntax (no #, **, backticks) so it reads as plain text when
+    # opened in Excel/Sheets/Numbers, not like broken code.
+    with open("outputs/report.csv", "w", newline="") as f:
+        w = csv.writer(f)
+
+        w.writerow(["RETENTION MODEL UPDATE - sBG vs BdW, BOTH PLANS"])
+        w.writerow(["All assumptions read live from model.xlsx at run time."])
+        w.writerow([])
+
+        w.writerow(["CURRENT PLAN MIX"])
+        w.writerow(["Monthly", f"{state['mix_monthly']*100:.0f}%"])
+        w.writerow(["3-Month", f"{state['mix_3month']*100:.0f}%"])
+        w.writerow(["6-Month", f"{state['mix_6month']*100:.0f}%"])
+        w.writerow(["OTP", f"{state['mix_otp']*100:.0f}%"])
+        w.writerow([])
+
+        w.writerow(["MODEL COMPARISON BY PLAN"])
+        w.writerow(["Plan", "sBG MAE", "sBG Confidence", "BdW MAE", "BdW Confidence", "Winner", "Margin"])
+        for plan, c in comparisons.items():
+            w.writerow([plan, f"{c['sbg_mae']:.4f}", c['sbg_conf'], f"{c['bdw_mae']:.4f}",
+                        c['bdw_conf'], c['winner'], f"{c['pct']:.1f}%"])
+        w.writerow([])
+
+        w.writerow(["CONFIDENCE RATING KEY"])
+        w.writerow(["HIGH", "Beats current numbers on held-out data, wins a large majority of "
+                    "CV folds, plenty of held-out points, no fit instability"])
+        w.writerow(["MEDIUM", "Beats current numbers, but on a smaller sample or less consistently"])
+        w.writerow(["LOW", "Either doesn't beat current numbers, or the fit was unstable in at "
+                    "least one fold (a sign of insufficient data)"])
+        w.writerow([])
+
+        w.writerow(["CELL-BY-CELL DETAIL"])
+        w.writerow([
+            "Plan", "Cell", "Old Value", "sBG Value", "sBG Confidence",
+            "BdW Value", "BdW Confidence", "Winner", "Recommended Value",
+            "Why This Model Won", "Finding", "Business Impact",
+        ])
+        for row in report_rows:
+            w.writerow([
+                row["plan"], row["cell"], row["old_value"],
+                row["sbg_value"], row["sbg_confidence"],
+                row["bdw_value"], row["bdw_confidence"],
+                row["winner"], row["recommended_value"],
+                row["win_reason"], row["finding"], row["business_impact"],
+            ])
+
+    print("\nWrote outputs/report.md, outputs/report.csv, and outputs/sheet_updates.csv")
 
 
 if __name__ == "__main__":
