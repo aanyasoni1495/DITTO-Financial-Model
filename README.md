@@ -58,8 +58,20 @@ model.xlsx                   source workbook (not committed - see .gitignore)
 pip install -r requirements.txt
 
 python3 src/extract_data.py     # (re)build the CSVs from model.xlsx
-python3 src/run_pipeline.py     # read live state + fit + CV + report
+python3 src/run_pipeline.py     # fits AND cross-validates BOTH sBG and BdW,
+                                 # for BOTH plans, and writes outputs/report.md
 ```
+
+`run_pipeline.py` is the single source of truth now -- it runs sBG and BdW
+for both Monthly and 3-Month, cross-validates each, and picks a winner per
+plan based on held-out accuracy (not assumed to be the same model for both
+plans -- see the comparison table at the top of the report). Cell values are
+shown for both models, with the losing model's rows explicitly marked "not
+recommended" rather than removed, so you can see what was considered.
+
+`src/compare_models.py` still exists as a lighter-weight, terminal-only
+version of just the head-to-head comparison, if you want to check that
+without regenerating the full report.
 
 Open `outputs/report.md`. Every cell listed has an **old value** (or a note
 saying it's read live / not directly meaningful, see the C32 case above), a
@@ -85,31 +97,27 @@ numbers (fold win rate, point count, MAE comparison) that produced it.
 
 `src/bdw_model.py` implements the beta-discrete-Weibull model, sBG's more
 flexible sibling (adds one parameter, c, letting an individual's own churn
-probability drift over time, not just the population mix). `src/compare_models.py`
-fits both models on identical data through identical CV folds and reports
-which one genuinely wins on HELD-OUT accuracy (comparing training fit would
-be meaningless -- BdW is mathematically identical to sBG when c=1, so it can
-never look worse on data it was fit on).
+probability drift over time, not just the population mix). As of this
+version, `run_pipeline.py` fits and cross-validates BOTH sBG and BdW for
+BOTH plans automatically -- no separate step needed. `src/compare_models.py`
+still exists as a lighter, terminal-only version of just the head-to-head
+comparison if you don't want to regenerate the full report.
 
-```bash
-python3 src/compare_models.py
-```
-
-**Result (last run):**
+**Result (last run, in `outputs/report.md`'s comparison table):**
 
 - **Monthly**: BdW beats sBG by 3.1% on held-out data (MAE 0.0234 vs 0.0241),
   both HIGH confidence, fitted c=0.93 (close to sBG's implicit c=1) -- a
-  small, genuine improvement worth adopting.
-- **3-Month**: BdW is 9.7% WORSE than sBG on held-out data (MAE 0.0578 vs
+  small, genuine improvement. **BdW is the recommended model for Monthly.**
+- **3-Month**: BdW is 8.8% WORSE than sBG on held-out data (MAE 0.0578 vs
   0.0527), both LOW confidence, and BdW's fits are noticeably more unstable
-  fold-to-fold (alpha/beta swinging between 0.09 and 83 across folds, worse
-  than sBG's own instability there) -- the extra parameter is overfitting
-  3-Month's already-thin data, not helping. Keep sBG for 3-Month.
+  fold-to-fold than sBG's own instability there -- the extra parameter is
+  overfitting 3-Month's already-thin data. **sBG remains the recommended
+  model for 3-Month.**
 
-This is exactly the risk flagged before building it: more flexibility only
-helps when there's enough data to support it. Worth re-running this
-comparison monthly alongside `run_pipeline.py` -- as 3-Month accumulates more
-mature cohorts, BdW may eventually earn its place there too.
+This is exactly the risk flagged before building BdW: more flexibility only
+helps when there's enough data to support it -- confirmed differently for
+each plan, not assumed to be the same. Worth re-running this monthly, since
+3-Month may eventually have enough mature data for BdW to earn its place too.
 
 ## Important limitation: Closing Balance
 

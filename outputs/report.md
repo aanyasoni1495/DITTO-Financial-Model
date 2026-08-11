@@ -1,100 +1,154 @@
-# Retention Model Update -- Findings & Cell Changes
+# Retention Model Update -- sBG vs BdW, Both Plans
 
-All assumptions below (prices, mix, CAC, current curves) were read live from `model.xlsx` at run time -- nothing is hardcoded in this pipeline.
+All assumptions (prices, mix, CAC, current curves) were read live from `model.xlsx` at run time. Both models are fit and cross-validated for both plans; each plan's comparison section recommends whichever model actually wins on held-out accuracy for that plan -- they are not assumed to be the same.
 
-## Current plan mix (unaffected by this update)
+## Current plan mix (unaffected by any model choice)
 
 - Monthly: 30%
 - 3-Month: 65%
 - 6-Month: 0%
 - OTP: 5%
 
-## Blended AOV impact
+## Model comparison, side by side
 
-| Month | Old Blended AOV | New Blended AOV | Delta |
-|---|---|---|---|
-| 0 | £53.90 | £53.90 | £+0.00 |
-| 3 | £35.94 | £36.66 | £+0.73 |
-| 6 | £20.20 | £22.67 | £+2.46 |
-| 9 | £13.03 | £14.69 | £+1.66 |
-| 12 | £11.91 | £9.87 | £-2.04 |
+| Plan | sBG MAE | sBG confidence | BdW MAE | BdW confidence | Winner | Margin |
+|---|---|---|---|---|---|---|
+| Monthly | 0.0241 | HIGH | 0.0234 | HIGH | **BdW** | 3.1% |
+| 3-Month | 0.0527 | LOW | 0.0579 | LOW | **sBG** | 9.0% |
 
-## Closing Balance (Cash Flow!row169) -- NOT computed automatically
-
-This pipeline can't recalculate the full workbook. Paste the values below into your live copy, let Excel recalculate, save as `model_after.xlsx` (keep the original as `model_before.xlsx`), then run:
-
-```python
-from business_impact import diff_closing_balance
-diff_closing_balance('model_before.xlsx', 'model_after.xlsx')
-```
+**Recommendation:** use each plan's winning model's cell values below (marked RECOMMENDED); ignore the other model's rows for actual sheet updates -- they're shown for transparency, not for use.
 
 ## Confidence rating key
 
-- **HIGH**: beats the current numbers on held-out data, wins consistently across CV folds, plenty of held-out points, no fit instability
-- **MEDIUM**: beats the current numbers, but on a smaller sample or less consistently across folds
-- **LOW**: either doesn't beat the current numbers, or the fit showed signs of instability (hit the optimizer's bounds) in at least one fold
+- **HIGH**: beats current numbers on held-out data, wins a large majority of CV folds, plenty of held-out points, no fit instability
+- **MEDIUM**: beats current numbers, but on a smaller sample or less consistently
+- **LOW**: either doesn't beat current numbers, or the fit was unstable in at least one fold (a sign of insufficient data, common for BdW's extra parameter on the 3-Month plan specifically)
 
-## `Model Assumptions!C32`
+## [Monthly] `Model Assumptions!C32` -- sBG (not recommended -- see comparison)
 
-- **Old value:** (read live from sheet -- see note)
+- **Old value:** (read live from sheet)
 - **New value:** 0.0979
-- **Finding:** Monthly M7-12 churn: the live curve currently implies a 4.0%/month rate here (derived from the curve's own actual decay in this window, read directly from Cohort Modelling!row248 -- not from any single input cell, since input cells for this can be unused/inconsistent). Fitting sBG on 153 cohort-month data points (alpha=1.21, beta=2.88) gives 9.8%/month instead.
-- **Confidence: HIGH** -- Improved on aggregate (0.0236 vs 0.0358), won 100% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
-- **Business impact:** 1st Yr LTV: £135.07 -> £129.46 (-4.2%, WORSENS); CAC:LTV: 3.463x -> 3.319x (WORSENS)
+- **Finding:** Monthly M7-12 churn: fit params [1.20896786 2.88209189] on 153 real data points.
+- **Confidence: HIGH** -- Improved on aggregate (0.0241 vs 0.0390), won 80% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
+- **Business impact:** 1st Yr LTV: £136.13 -> £129.46 (WORSENS); CAC:LTV WORSENS
 
-## `Cohort Modelling!B20`
+## [Monthly] `Cohort Modelling!B20` -- sBG (not recommended -- see comparison)
 
-- **Old value:** 0.0400
+- **Old value:** 0.0300
 - **New value:** 0.0979
-- **Finding:** Monthly M7-12 churn (the cell the live curve actually uses): the live curve currently implies a 4.0%/month rate here (derived from the curve's own actual decay in this window, read directly from Cohort Modelling!row248 -- not from any single input cell, since input cells for this can be unused/inconsistent). Fitting sBG on 153 cohort-month data points (alpha=1.21, beta=2.88) gives 9.8%/month instead.
-- **Confidence: HIGH** -- Improved on aggregate (0.0236 vs 0.0358), won 100% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
-- **Business impact:** 1st Yr LTV: £135.07 -> £129.46 (-4.2%, WORSENS); CAC:LTV: 3.463x -> 3.319x (WORSENS)
+- **Finding:** Monthly M7-12 churn (cell the live curve actually uses): fit params [1.20896786 2.88209189] on 153 real data points.
+- **Confidence: HIGH** -- Improved on aggregate (0.0241 vs 0.0390), won 80% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
+- **Business impact:** 1st Yr LTV: £136.13 -> £129.46 (WORSENS); CAC:LTV WORSENS
 
-## `Model Assumptions!C33`
+## [Monthly] `Model Assumptions!C33` -- sBG (not recommended -- see comparison)
 
-- **Old value:** (read live from sheet -- see note)
+- **Old value:** (read live from sheet)
 - **New value:** 0.0575
-- **Finding:** Monthly M13-24 churn: the live curve currently implies a 2.0%/month rate here (derived from the curve's own actual decay in this window, read directly from Cohort Modelling!row248 -- not from any single input cell, since input cells for this can be unused/inconsistent). Fitting sBG on 153 cohort-month data points (alpha=1.21, beta=2.88) gives 5.8%/month instead.
-- **Confidence: HIGH** -- Improved on aggregate (0.0236 vs 0.0358), won 100% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
-- **Business impact:** 1st Yr LTV: £135.07 -> £129.46 (-4.2%, WORSENS); CAC:LTV: 3.463x -> 3.319x (WORSENS)
+- **Finding:** Monthly M13-24 churn: fit params [1.20896786 2.88209189] on 153 real data points.
+- **Confidence: HIGH** -- Improved on aggregate (0.0241 vs 0.0390), won 80% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
+- **Business impact:** 1st Yr LTV: £136.13 -> £129.46 (WORSENS); CAC:LTV WORSENS
 
-## `Model Assumptions!C34`
+## [Monthly] `Model Assumptions!C34` -- sBG (not recommended -- see comparison)
 
-- **Old value:** (read live from sheet -- see note)
+- **Old value:** (read live from sheet)
 - **New value:** 0.0315
-- **Finding:** Monthly post-M24 churn: the live curve currently implies a 1.0%/month rate here (derived from the curve's own actual decay in this window, read directly from Cohort Modelling!row248 -- not from any single input cell, since input cells for this can be unused/inconsistent). Fitting sBG on 153 cohort-month data points (alpha=1.21, beta=2.88) gives 3.2%/month instead.
-- **Confidence: HIGH** -- Improved on aggregate (0.0236 vs 0.0358), won 100% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
-- **Business impact:** 1st Yr LTV: £135.07 -> £129.46 (-4.2%, WORSENS); CAC:LTV: 3.463x -> 3.319x (WORSENS)
+- **Finding:** Monthly post-M24 churn: fit params [1.20896786 2.88209189] on 153 real data points.
+- **Confidence: HIGH** -- Improved on aggregate (0.0241 vs 0.0390), won 80% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
+- **Business impact:** 1st Yr LTV: £136.13 -> £129.46 (WORSENS); CAC:LTV WORSENS
 
-## `Cohort Modelling!K415 (I415, J415 flattened to =H415)`
+## [Monthly] `Model Assumptions!C32` -- BdW (RECOMMENDED)
+
+- **Old value:** (read live from sheet)
+- **New value:** 0.1035
+- **Finding:** Monthly M7-12 churn: fit params [1.57812387 3.71111231 0.92884454] on 153 real data points.
+- **Confidence: HIGH** -- Improved on aggregate (0.0234 vs 0.0390), won 100% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
+- **Business impact:** 1st Yr LTV: £136.13 -> £128.97 (WORSENS); CAC:LTV WORSENS
+
+## [Monthly] `Cohort Modelling!B20` -- BdW (RECOMMENDED)
+
+- **Old value:** 0.0300
+- **New value:** 0.1035
+- **Finding:** Monthly M7-12 churn (cell the live curve actually uses): fit params [1.57812387 3.71111231 0.92884454] on 153 real data points.
+- **Confidence: HIGH** -- Improved on aggregate (0.0234 vs 0.0390), won 100% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
+- **Business impact:** 1st Yr LTV: £136.13 -> £128.97 (WORSENS); CAC:LTV WORSENS
+
+## [Monthly] `Model Assumptions!C33` -- BdW (RECOMMENDED)
+
+- **Old value:** (read live from sheet)
+- **New value:** 0.0635
+- **Finding:** Monthly M13-24 churn: fit params [1.57812387 3.71111231 0.92884454] on 153 real data points.
+- **Confidence: HIGH** -- Improved on aggregate (0.0234 vs 0.0390), won 100% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
+- **Business impact:** 1st Yr LTV: £136.13 -> £128.97 (WORSENS); CAC:LTV WORSENS
+
+## [Monthly] `Model Assumptions!C34` -- BdW (RECOMMENDED)
+
+- **Old value:** (read live from sheet)
+- **New value:** 0.0360
+- **Finding:** Monthly post-M24 churn: fit params [1.57812387 3.71111231 0.92884454] on 153 real data points.
+- **Confidence: HIGH** -- Improved on aggregate (0.0234 vs 0.0390), won 100% of 5 folds, 125 held-out points, no fold hit an optimizer bound. Consistent, well-supported result.
+- **Business impact:** 1st Yr LTV: £136.13 -> £128.97 (WORSENS); CAC:LTV WORSENS
+
+## [3-Month] `Cohort Modelling!K415 (I415, J415 flattened to =H415)` -- sBG (RECOMMENDED)
 
 - **Old value:** 0.1952 (via noisy compounded formula)
-- **New value:** 0.236564
-- **Finding:** Month-9 retention was computed by compounding noisy calendar-month ratios for months 7-8 (non-renewal months for a 3-month billing cycle). sBG (alpha=7.20, beta=10.73, fit on the quarterly-checkpoint cohort data) predicts month 9 directly without that contamination.
+- **New value:** 0.236565
+- **Finding:** 3-Month month-9 retention: fit params [ 7.20459018 10.72482574] on 57 real data points.
 - **Confidence: LOW** -- Aggregate MAE improved (0.0527 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
-- **Business impact:** 1st Yr LTV: £126.83 -> £129.93 (+2.4%, IMPROVES); CAC:LTV: 3.252x -> 3.332x (IMPROVES)
+- **Business impact:** 1st Yr LTV: £126.83 -> £129.93 (IMPROVES); CAC:LTV IMPROVES
 
-## `Model Assumptions!C43`
+## [3-Month] `Model Assumptions!C43` -- sBG (RECOMMENDED)
 
-- **Old value:** (read live -- see note)
+- **Old value:** (read live)
 - **New value:** 0.1312
-- **Finding:** 3-Month M7-12 churn (monthly-equiv.): derived from the same fit as month-9 above. sBG-implied monthly-equivalent rate for this window is 13.1%/month.
-- **Confidence: LOW** -- Aggregate MAE improved (0.0527 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled. This specific tier is deeper into the curve than what the raw-curve CV above directly tested (42 held-out points total across the whole 3-Month curve) -- treat as less certain than the month-9 fix.
-- **Business impact:** Affects 2yr/3yr/4yr LTV (not 1st Yr LTV) -- not separately computed here.
+- **Finding:** 3-Month M7-12 churn (monthly-equiv.): derived from the same fit as month-9 above.
+- **Confidence: LOW** -- Aggregate MAE improved (0.0527 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
+- **Business impact:** Affects 2yr/3yr/4yr LTV, not 1st Yr LTV -- not separately computed.
 
-## `Model Assumptions!C44`
+## [3-Month] `Model Assumptions!C44` -- sBG (RECOMMENDED)
 
-- **Old value:** (read live -- see note)
+- **Old value:** (read live)
 - **New value:** 0.1156
-- **Finding:** 3-Month M13-24 churn (monthly-equiv.): derived from the same fit as month-9 above. sBG-implied monthly-equivalent rate for this window is 11.6%/month.
-- **Confidence: LOW** -- Aggregate MAE improved (0.0527 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled. This specific tier is deeper into the curve than what the raw-curve CV above directly tested (42 held-out points total across the whole 3-Month curve) -- treat as less certain than the month-9 fix.
-- **Business impact:** Affects 2yr/3yr/4yr LTV (not 1st Yr LTV) -- not separately computed here.
+- **Finding:** 3-Month M13-24 churn (monthly-equiv.): derived from the same fit as month-9 above.
+- **Confidence: LOW** -- Aggregate MAE improved (0.0527 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
+- **Business impact:** Affects 2yr/3yr/4yr LTV, not 1st Yr LTV -- not separately computed.
 
-## `Model Assumptions!C45`
+## [3-Month] `Model Assumptions!C45` -- sBG (RECOMMENDED)
 
-- **Old value:** (read live -- see note)
+- **Old value:** (read live)
 - **New value:** 0.0901
-- **Finding:** 3-Month post-M24 churn (monthly-equiv.): derived from the same fit as month-9 above. sBG-implied monthly-equivalent rate for this window is 9.0%/month.
-- **Confidence: LOW** -- Aggregate MAE improved (0.0527 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled. This specific tier is deeper into the curve than what the raw-curve CV above directly tested (42 held-out points total across the whole 3-Month curve) -- treat as less certain than the month-9 fix.
-- **Business impact:** Affects 2yr/3yr/4yr LTV (not 1st Yr LTV) -- not separately computed here.
+- **Finding:** 3-Month post-M24 churn (monthly-equiv.): derived from the same fit as month-9 above.
+- **Confidence: LOW** -- Aggregate MAE improved (0.0527 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
+- **Business impact:** Affects 2yr/3yr/4yr LTV, not 1st Yr LTV -- not separately computed.
+
+## [3-Month] `Cohort Modelling!K415 (I415, J415 flattened to =H415)` -- BdW (not recommended -- see comparison)
+
+- **Old value:** 0.1952 (via noisy compounded formula)
+- **New value:** 0.239111
+- **Finding:** 3-Month month-9 retention: fit params [0.71558546 1.08291389 1.65306791] on 57 real data points.
+- **Confidence: LOW** -- Aggregate MAE improved (0.0579 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
+- **Business impact:** 1st Yr LTV: £126.83 -> £130.12 (IMPROVES); CAC:LTV IMPROVES
+
+## [3-Month] `Model Assumptions!C43` -- BdW (not recommended -- see comparison)
+
+- **Old value:** (read live)
+- **New value:** 0.0961
+- **Finding:** 3-Month M7-12 churn (monthly-equiv.): derived from the same fit as month-9 above.
+- **Confidence: LOW** -- Aggregate MAE improved (0.0579 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
+- **Business impact:** Affects 2yr/3yr/4yr LTV, not 1st Yr LTV -- not separately computed.
+
+## [3-Month] `Model Assumptions!C44` -- BdW (not recommended -- see comparison)
+
+- **Old value:** (read live)
+- **New value:** 0.0626
+- **Finding:** 3-Month M13-24 churn (monthly-equiv.): derived from the same fit as month-9 above.
+- **Confidence: LOW** -- Aggregate MAE improved (0.0579 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
+- **Business impact:** Affects 2yr/3yr/4yr LTV, not 1st Yr LTV -- not separately computed.
+
+## [3-Month] `Model Assumptions!C45` -- BdW (not recommended -- see comparison)
+
+- **Old value:** (read live)
+- **New value:** 0.0330
+- **Finding:** 3-Month post-M24 churn (monthly-equiv.): derived from the same fit as month-9 above.
+- **Confidence: LOW** -- Aggregate MAE improved (0.0579 vs 0.0845), but at least one fold's fit hit the optimizer's bound (alpha or beta pushed to an extreme value) -- a sign that fold simply didn't have enough training data yet for a stable fit. Treat as directionally useful, not settled.
+- **Business impact:** Affects 2yr/3yr/4yr LTV, not 1st Yr LTV -- not separately computed.
 
