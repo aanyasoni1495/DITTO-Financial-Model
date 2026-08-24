@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DITTO AOV Simulator</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #666; margin-bottom: 24px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .card { background: #f5f5f4; border-radius: 8px; padding: 16px; }
+  .card-label { font-size: 13px; color: #666; margin-bottom: 4px; }
+  .card-value { font-size: 24px; font-weight: 600; }
+  .section-label { font-size: 13px; font-weight: 600; margin: 20px 0 8px; }
+  .input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .input-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
+  input[type=number] { width: 100%; padding: 8px; border: 1px solid #d4d4d4; border-radius: 6px; font-size: 14px; box-sizing: border-box; }
+  .slider-row { margin-bottom: 12px; }
+  .slider-row-label { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 4px; }
+  input[type=range] { width: 100%; }
+  #chartWrap { position: relative; width: 100%; height: 280px; margin-bottom: 8px; }
+  .note { font-size: 11px; color: #999; }
+  .meta { font-size: 11px; color: #999; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<h1>DITTO AOV simulator</h1>
+<p class="subtitle">Set hypothetical prices and plan mix to see the effect on blended AOV. Assumes retention is unchanged by price.</p>
+
+<div class="cards">
+  <div class="card"><div class="card-label">Blended AOV, month 6</div><div class="card-value" id="aov-out">£0.00</div></div>
+  <div class="card"><div class="card-label">vs current sheet</div><div class="card-value" id="delta-out">£0.00</div></div>
+</div>
+
+<div class="section-label">Prices</div>
+<div class="input-grid">
+  <div class="input-group"><label>Monthly (£)</label><input type="number" id="price-monthly" value="40" min="0" step="1"></div>
+  <div class="input-group"><label>3-Month (£)</label><input type="number" id="price-3month" value="100" min="0" step="1"></div>
+  <div class="input-group"><label>OTP (£)</label><input type="number" id="price-otp" value="50" min="0" step="1"></div>
+</div>
+
+<div class="section-label">Mix (auto-normalizes to 100%)</div>
+<div class="slider-row">
+  <div class="slider-row-label"><span>Monthly</span><span id="mix-monthly-out">30%</span></div>
+  <input type="range" id="mix-monthly" min="0" max="100" value="30" step="1">
+</div>
+<div class="slider-row">
+  <div class="slider-row-label"><span>3-Month</span><span id="mix-3month-out">65%</span></div>
+  <input type="range" id="mix-3month" min="0" max="100" value="65" step="1">
+</div>
+<div class="slider-row">
+  <div class="slider-row-label"><span>OTP</span><span id="mix-otp-out">5%</span></div>
+  <input type="range" id="mix-otp" min="0" max="100" value="5" step="1">
+</div>
+
+<div id="chartWrap"><canvas id="aovChart"></canvas></div>
+<p class="note">Hover the chart to see exact blended AOV at any month. Curves refit monthly from real cohort data -- last updated <span id="curve-date">loading...</span>. Monthly uses <span id="monthly-model"></span>, 3-Month uses <span id="threemonth-model"></span> (whichever model wins that plan's validation).</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const CURRENT_PRICE_M = 40, CURRENT_PRICE_3 = 100;
+const CURRENT_MIX_M = 0.30, CURRENT_MIX_3 = 0.65;
+
+let monthlyCurve = [1.0];
+let threeMonthCurveCycles = [1.0];
+let chart;
+
+function threeMonthRevAt(month, price) {
+  if (month % 3 !== 0) return 0;
+  const cyc = month / 3;
+  const r = cyc < threeMonthCurveCycles.length ? threeMonthCurveCycles[cyc] : threeMonthCurveCycles[threeMonthCurveCycles.length-1];
+  return price * r;
+}
+function monthlyRevAt(month, price) {
+  const r = month < monthlyCurve.length ? monthlyCurve[month] : monthlyCurve[monthlyCurve.length-1];
+  return price * r;
+}
+function blendedAovAt(month, pM, p3, mM, m3) {
+  return mM * monthlyRevAt(month, pM) + m3 * threeMonthRevAt(month, p3);
+}
+
+const els = {
+  pM: document.getElementById('price-monthly'),
+  p3: document.getElementById('price-3month'),
+  pO: document.getElementById('price-otp'),
+  mM: document.getElementById('mix-monthly'),
+  m3: document.getElementById('mix-3month'),
+  mO: document.getElementById('mix-otp'),
+};
+const outs = {
+  mM: document.getElementById('mix-monthly-out'),
+  m3: document.getElementById('mix-3month-out'),
+  mO: document.getElementById('mix-otp-out'),
+};
+
+function normalizedMix() {
+  let raw = { m: Number(els.mM.value), t: Number(els.m3.value), o: Number(els.mO.value) };
+  let sum = raw.m + raw.t + raw.o;
+  if (sum === 0) sum = 1;
+  return { m: raw.m/sum, t: raw.t/sum, o: raw.o/sum };
+}
+
+function update() {
+  const mix = normalizedMix();
+  outs.mM.textContent = Math.round(mix.m*100) + '%';
+  outs.m3.textContent = Math.round(mix.t*100) + '%';
+  outs.mO.textContent = Math.round(mix.o*100) + '%';
+
+  const pM = Number(els.pM.value) || 0;
+  const p3 = Number(els.p3.value) || 0;
+
+  const months = Array.from({length: 13}, (_, i) => i);
+  const currentAov = months.map(t => blendedAovAt(t, CURRENT_PRICE_M, CURRENT_PRICE_3, CURRENT_MIX_M, CURRENT_MIX_3));
+  const scenarioAov = months.map(t => blendedAovAt(t, pM, p3, mix.m, mix.t));
+
+  document.getElementById('aov-out').textContent = '£' + scenarioAov[6].toFixed(2);
+  const delta = scenarioAov[6] - currentAov[6];
+  const deltaEl = document.getElementById('delta-out');
+  deltaEl.textContent = (delta >= 0 ? '+£' : '-£') + Math.abs(delta).toFixed(2);
+  deltaEl.style.color = delta >= 0 ? '#1a7a3f' : '#b3261e';
+
+  if (chart) {
+    chart.data.datasets[0].data = currentAov;
+    chart.data.datasets[1].data = scenarioAov;
+    chart.update();
+  } else {
+    chart = new Chart(document.getElementById('aovChart'), {
+      type: 'line',
+      data: {
+        labels: months,
+        datasets: [
+          { label: 'Current sheet', data: currentAov, borderColor: '#8a8a86', borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, tension: 0.15 },
+          { label: 'Your scenario', data: scenarioAov, borderColor: '#2f6fb3', borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, tension: 0.15 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 12 } } },
+          tooltip: { mode: 'index', intersect: false, callbacks: { label: (c) => c.dataset.label + ': £' + c.parsed.y.toFixed(2) } }
+        },
+        scales: {
+          x: { title: { display: true, text: 'Months since signup', font: { size: 11 } }, grid: { display: false } },
+          y: { title: { display: true, text: 'Blended AOV (£)', font: { size: 11 } }, grid: { color: 'rgba(0,0,0,0.06)' } }
+        }
+      }
+    });
+  }
+}
+
+fetch('curves.json')
+  .then(r => r.json())
+  .then(data => {
+    monthlyCurve = data.monthly_curve;
+    threeMonthCurveCycles = data.threemonth_curve_cycles;
+    document.getElementById('curve-date').textContent = data.generated_date;
+    document.getElementById('monthly-model').textContent = data.monthly_model_used;
+    document.getElementById('threemonth-model').textContent = data.threemonth_model_used;
+    update();
+  })
+  .catch(() => {
+    document.getElementById('curve-date').textContent = 'could not load curves.json -- using placeholder values';
+    update();
+  });
+
+[els.pM, els.p3, els.pO, els.mM, els.m3, els.mO].forEach(el => el.addEventListener('input', update));
+</script>
+</body>
+</html>
