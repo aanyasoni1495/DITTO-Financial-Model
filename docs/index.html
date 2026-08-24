@@ -34,7 +34,7 @@
   <div class="card"><div class="card-label">vs current sheet</div><div class="card-value" id="delta-out">£0.00</div></div>
 </div>
 
-<div class="section-label">Prices</div>
+<div class="section-label">Recurring prices</div>
 <div class="input-grid">
   <div class="input-group"><label>Monthly (£)</label><input type="number" id="price-monthly" value="40" min="0" step="1"></div>
   <div class="input-group"><label>3-Month (£)</label><input type="number" id="price-3month" value="100" min="0" step="1"></div>
@@ -46,8 +46,6 @@
   <div class="input-group"><label>Monthly (%)</label><input type="number" id="disc-monthly" value="0" min="0" max="100" step="1"></div>
   <div class="input-group"><label>3-Month (%)</label><input type="number" id="disc-3month" value="0" min="0" max="100" step="1"></div>
 </div>
-<p class="note" id="first-order-preview" style="margin: -12px 0 20px;">First order: Monthly £40.00, 3-Month £100.00</p>
-
 <div class="section-label">Mix (must total 100%)</div>
 <div class="input-grid">
   <div class="input-group"><label>Monthly (%)</label><input type="number" id="mix-monthly" value="30" min="0" max="100" step="1"></div>
@@ -58,7 +56,6 @@
 <div id="mix-ok" style="font-size: 13px; color: #1a7a3f; margin: -8px 0 20px;">Totals 100%</div>
 
 <div id="chartWrap"><canvas id="aovChart"></canvas></div>
-<p class="note">Hover the chart to see exact blended AOV at any month. Curves refit monthly from real cohort data -- last updated <span id="curve-date">loading...</span>. Monthly uses <span id="monthly-model"></span>, 3-Month uses <span id="threemonth-model"></span> (whichever model wins that plan's validation).</p>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
@@ -122,9 +119,6 @@ function update() {
   const dM = Number(els.dM.value) || 0;
   const d3 = Number(els.d3.value) || 0;
 
-  document.getElementById('first-order-preview').textContent =
-    'First order: Monthly £' + (pM * (1 - dM/100)).toFixed(2) + ', 3-Month £' + (p3 * (1 - d3/100)).toFixed(2);
-
   const months = Array.from({length: 13}, (_, i) => i);
   const currentAov = months.map(t => blendedAovAt(t, CURRENT_PRICE_M, CURRENT_PRICE_3, 0, 0, CURRENT_MIX_M, CURRENT_MIX_3));
 
@@ -180,13 +174,9 @@ fetch('curves.json')
   .then(data => {
     monthlyCurve = data.monthly_curve;
     threeMonthCurveCycles = data.threemonth_curve_cycles;
-    document.getElementById('curve-date').textContent = data.generated_date;
-    document.getElementById('monthly-model').textContent = data.monthly_model_used;
-    document.getElementById('threemonth-model').textContent = data.threemonth_model_used;
     update();
   })
   .catch(() => {
-    document.getElementById('curve-date').textContent = 'could not load curves.json -- using placeholder values';
     update();
   });
 
