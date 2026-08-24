@@ -41,6 +41,13 @@
   <div class="input-group"><label>OTP (£)</label><input type="number" id="price-otp" value="50" min="0" step="1"></div>
 </div>
 
+<div class="section-label">First-purchase discount</div>
+<div class="input-grid">
+  <div class="input-group"><label>Monthly (%)</label><input type="number" id="disc-monthly" value="0" min="0" max="100" step="1"></div>
+  <div class="input-group"><label>3-Month (%)</label><input type="number" id="disc-3month" value="0" min="0" max="100" step="1"></div>
+</div>
+<p class="note" id="first-order-preview" style="margin: -12px 0 20px;">First order: Monthly £40.00, 3-Month £100.00</p>
+
 <div class="section-label">Mix (must total 100%)</div>
 <div class="input-grid">
   <div class="input-group"><label>Monthly (%)</label><input type="number" id="mix-monthly" value="30" min="0" max="100" step="1"></div>
@@ -62,24 +69,28 @@ let monthlyCurve = [1.0];
 let threeMonthCurveCycles = [1.0];
 let chart;
 
-function threeMonthRevAt(month, price) {
+function threeMonthRevAt(month, price, disc) {
   if (month % 3 !== 0) return 0;
   const cyc = month / 3;
   const r = cyc < threeMonthCurveCycles.length ? threeMonthCurveCycles[cyc] : threeMonthCurveCycles[threeMonthCurveCycles.length-1];
-  return price * r;
+  const effectivePrice = cyc === 0 ? price * (1 - disc/100) : price;
+  return effectivePrice * r;
 }
-function monthlyRevAt(month, price) {
+function monthlyRevAt(month, price, disc) {
   const r = month < monthlyCurve.length ? monthlyCurve[month] : monthlyCurve[monthlyCurve.length-1];
-  return price * r;
+  const effectivePrice = month === 0 ? price * (1 - disc/100) : price;
+  return effectivePrice * r;
 }
-function blendedAovAt(month, pM, p3, mM, m3) {
-  return mM * monthlyRevAt(month, pM) + m3 * threeMonthRevAt(month, p3);
+function blendedAovAt(month, pM, p3, dM, d3, mM, m3) {
+  return mM * monthlyRevAt(month, pM, dM) + m3 * threeMonthRevAt(month, p3, d3);
 }
 
 const els = {
   pM: document.getElementById('price-monthly'),
   p3: document.getElementById('price-3month'),
   pO: document.getElementById('price-otp'),
+  dM: document.getElementById('disc-monthly'),
+  d3: document.getElementById('disc-3month'),
   mM: document.getElementById('mix-monthly'),
   m3: document.getElementById('mix-3month'),
   mO: document.getElementById('mix-otp'),
@@ -108,9 +119,14 @@ function update() {
   const mix = checkMix();
   const pM = Number(els.pM.value) || 0;
   const p3 = Number(els.p3.value) || 0;
+  const dM = Number(els.dM.value) || 0;
+  const d3 = Number(els.d3.value) || 0;
+
+  document.getElementById('first-order-preview').textContent =
+    'First order: Monthly £' + (pM * (1 - dM/100)).toFixed(2) + ', 3-Month £' + (p3 * (1 - d3/100)).toFixed(2);
 
   const months = Array.from({length: 13}, (_, i) => i);
-  const currentAov = months.map(t => blendedAovAt(t, CURRENT_PRICE_M, CURRENT_PRICE_3, CURRENT_MIX_M, CURRENT_MIX_3));
+  const currentAov = months.map(t => blendedAovAt(t, CURRENT_PRICE_M, CURRENT_PRICE_3, 0, 0, CURRENT_MIX_M, CURRENT_MIX_3));
 
   const aovOut = document.getElementById('aov-out');
   const deltaEl = document.getElementById('delta-out');
@@ -123,7 +139,7 @@ function update() {
     return;
   }
 
-  const scenarioAov = months.map(t => blendedAovAt(t, pM, p3, mix.m, mix.t));
+  const scenarioAov = months.map(t => blendedAovAt(t, pM, p3, dM, d3, mix.m, mix.t));
   aovOut.textContent = '£' + scenarioAov[6].toFixed(2);
   const delta = scenarioAov[6] - currentAov[6];
   deltaEl.textContent = (delta >= 0 ? '+£' : '-£') + Math.abs(delta).toFixed(2);
@@ -174,7 +190,7 @@ fetch('curves.json')
     update();
   });
 
-[els.pM, els.p3, els.pO, els.mM, els.m3, els.mO].forEach(el => el.addEventListener('input', update));
+[els.pM, els.p3, els.pO, els.dM, els.d3, els.mM, els.m3, els.mO].forEach(el => el.addEventListener('input', update));
 </script>
 </body>
 </html>
