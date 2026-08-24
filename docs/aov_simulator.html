@@ -41,19 +41,14 @@
   <div class="input-group"><label>OTP (£)</label><input type="number" id="price-otp" value="50" min="0" step="1"></div>
 </div>
 
-<div class="section-label">Mix (auto-normalizes to 100%)</div>
-<div class="slider-row">
-  <div class="slider-row-label"><span>Monthly</span><span id="mix-monthly-out">30%</span></div>
-  <input type="range" id="mix-monthly" min="0" max="100" value="30" step="1">
+<div class="section-label">Mix (must total 100%)</div>
+<div class="input-grid">
+  <div class="input-group"><label>Monthly (%)</label><input type="number" id="mix-monthly" value="30" min="0" max="100" step="1"></div>
+  <div class="input-group"><label>3-Month (%)</label><input type="number" id="mix-3month" value="65" min="0" max="100" step="1"></div>
+  <div class="input-group"><label>OTP (%)</label><input type="number" id="mix-otp" value="5" min="0" max="100" step="1"></div>
 </div>
-<div class="slider-row">
-  <div class="slider-row-label"><span>3-Month</span><span id="mix-3month-out">65%</span></div>
-  <input type="range" id="mix-3month" min="0" max="100" value="65" step="1">
-</div>
-<div class="slider-row">
-  <div class="slider-row-label"><span>OTP</span><span id="mix-otp-out">5%</span></div>
-  <input type="range" id="mix-otp" min="0" max="100" value="5" step="1">
-</div>
+<div id="mix-warning" style="display: none; font-size: 13px; color: #b3261e; margin: -8px 0 20px;"></div>
+<div id="mix-ok" style="font-size: 13px; color: #1a7a3f; margin: -8px 0 20px;">Totals 100%</div>
 
 <div id="chartWrap"><canvas id="aovChart"></canvas></div>
 <p class="note">Hover the chart to see exact blended AOV at any month. Curves refit monthly from real cohort data -- last updated <span id="curve-date">loading...</span>. Monthly uses <span id="monthly-model"></span>, 3-Month uses <span id="threemonth-model"></span> (whichever model wins that plan's validation).</p>
@@ -89,35 +84,48 @@ const els = {
   m3: document.getElementById('mix-3month'),
   mO: document.getElementById('mix-otp'),
 };
-const outs = {
-  mM: document.getElementById('mix-monthly-out'),
-  m3: document.getElementById('mix-3month-out'),
-  mO: document.getElementById('mix-otp-out'),
-};
+const outs = {};
 
-function normalizedMix() {
-  let raw = { m: Number(els.mM.value), t: Number(els.m3.value), o: Number(els.mO.value) };
-  let sum = raw.m + raw.t + raw.o;
-  if (sum === 0) sum = 1;
-  return { m: raw.m/sum, t: raw.t/sum, o: raw.o/sum };
+function checkMix() {
+  const total = Number(els.mM.value || 0) + Number(els.m3.value || 0) + Number(els.mO.value || 0);
+  const diff = 100 - total;
+  const warn = document.getElementById('mix-warning');
+  const ok = document.getElementById('mix-ok');
+  if (Math.abs(diff) < 0.01) {
+    warn.style.display = 'none';
+    ok.style.display = 'block';
+    return { valid: true, m: Number(els.mM.value)/100, t: Number(els.m3.value)/100, o: Number(els.mO.value)/100 };
+  }
+  ok.style.display = 'none';
+  warn.style.display = 'block';
+  warn.textContent = diff > 0
+    ? 'Totals ' + total.toFixed(0) + '%. Add ' + diff.toFixed(0) + ' more to reach 100%.'
+    : 'Totals ' + total.toFixed(0) + '%. Remove ' + Math.abs(diff).toFixed(0) + ' to reach 100%.';
+  return { valid: false };
 }
 
 function update() {
-  const mix = normalizedMix();
-  outs.mM.textContent = Math.round(mix.m*100) + '%';
-  outs.m3.textContent = Math.round(mix.t*100) + '%';
-  outs.mO.textContent = Math.round(mix.o*100) + '%';
-
+  const mix = checkMix();
   const pM = Number(els.pM.value) || 0;
   const p3 = Number(els.p3.value) || 0;
 
   const months = Array.from({length: 13}, (_, i) => i);
   const currentAov = months.map(t => blendedAovAt(t, CURRENT_PRICE_M, CURRENT_PRICE_3, CURRENT_MIX_M, CURRENT_MIX_3));
-  const scenarioAov = months.map(t => blendedAovAt(t, pM, p3, mix.m, mix.t));
 
-  document.getElementById('aov-out').textContent = '£' + scenarioAov[6].toFixed(2);
-  const delta = scenarioAov[6] - currentAov[6];
+  const aovOut = document.getElementById('aov-out');
   const deltaEl = document.getElementById('delta-out');
+
+  if (!mix.valid) {
+    aovOut.textContent = '\u2014';
+    deltaEl.textContent = 'Fix mix total first';
+    deltaEl.style.color = '#b3261e';
+    if (chart) { chart.data.datasets[1].data = []; chart.update(); }
+    return;
+  }
+
+  const scenarioAov = months.map(t => blendedAovAt(t, pM, p3, mix.m, mix.t));
+  aovOut.textContent = '£' + scenarioAov[6].toFixed(2);
+  const delta = scenarioAov[6] - currentAov[6];
   deltaEl.textContent = (delta >= 0 ? '+£' : '-£') + Math.abs(delta).toFixed(2);
   deltaEl.style.color = delta >= 0 ? '#1a7a3f' : '#b3261e';
 
