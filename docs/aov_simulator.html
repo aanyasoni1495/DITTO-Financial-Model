@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DITTO AOV Simulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Archivo:wght@400;500;600&display=swap');
+  body { font-family: 'Archivo', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; padding: 0; color: #401c16; background: #ffffff; }
+  .topbar { background: #fffdf5; padding: 20px 24px; }
+  .logo { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 600; color: #401c16; letter-spacing: -0.01em; }
+  .titleband { background: #f0eee7; padding: 28px 24px 32px; }
+  .titleband h1 { font-family: 'Fraunces', serif; font-size: 34px; font-weight: 500; color: #401c16; margin: 0 0 8px; }
+  .subtitle { font-family: 'Archivo', sans-serif; font-size: 14px; color: #401c16; opacity: 0.85; max-width: 480px; margin: 0; }
+  .body-content { max-width: 700px; margin: 0 auto; padding: 24px 1rem; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .card { background: #f0eee7; border-radius: 8px; padding: 16px; }
+  .card-label { font-size: 13px; color: #401c16; margin-bottom: 4px; }
+  .card-value { font-size: 24px; font-weight: 600; color: #401c16; }
+  .section-label { font-size: 13px; font-weight: 600; margin: 20px 0 8px; color: #401c16; }
+  .input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .input-group label { display: block; font-size: 12px; color: #401c16; margin-bottom: 4px; }
+  input[type=number] { width: 100%; padding: 8px; border: 1px solid #d3e5c8; border-radius: 6px; font-size: 14px; box-sizing: border-box; background: #ffffff; color: #401c16; }
+  input[type=number]:focus { outline: none; border-color: #ff673d; box-shadow: 0 0 0 3px rgba(255,103,61,0.15); }
+  #chartWrap { position: relative; width: 100%; height: 280px; margin-bottom: 8px; }
+  .note { font-size: 11px; color: #401c16; }
+  .meta { font-size: 11px; color: #401c16; margin-top: 4px; }
+  .legend-row { display: flex; gap: 16px; margin-bottom: 8px; font-size: 12px; color: #401c16; }
+  .legend-row span { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+</style>
+</head>
+<body>
+
+<div class="topbar"><span class="logo">DITTO</span></div>
+<div class="titleband">
+  <h1>AOV Simulator</h1>
+  <p class="subtitle">Set hypothetical prices and plan mix to see the effect on blended AOV. Assumes retention is unchanged by price.</p>
+</div>
+
+<div class="body-content">
+<div class="cards">
+  <div class="card"><div class="card-label">Blended AOV, month 6</div><div class="card-value" id="aov-out">£0.00</div></div>
+  <div class="card"><div class="card-label">vs current sheet</div><div class="card-value" id="delta-out">£0.00</div></div>
+</div>
+
+<div class="section-label">Recurring prices</div>
+<div class="input-grid">
+  <div class="input-group"><label>Monthly (£)</label><input type="number" id="price-monthly" value="40" min="0" step="1"></div>
+  <div class="input-group"><label>3-Month (£)</label><input type="number" id="price-3month" value="100" min="0" step="1"></div>
+  <div class="input-group"><label>OTP (£)</label><input type="number" id="price-otp" value="50" min="0" step="1"></div>
+</div>
+
+<div class="section-label">First-purchase discount</div>
+<div class="input-grid">
+  <div class="input-group"><label>Monthly (%)</label><input type="number" id="disc-monthly" value="0" min="0" max="100" step="1"></div>
+  <div class="input-group"><label>3-Month (%)</label><input type="number" id="disc-3month" value="0" min="0" max="100" step="1"></div>
+</div>
+<div class="section-label">Mix (must total 100%)</div>
+<div class="input-grid">
+  <div class="input-group"><label>Monthly (%)</label><input type="number" id="mix-monthly" value="30" min="0" max="100" step="1"></div>
+  <div class="input-group"><label>3-Month (%)</label><input type="number" id="mix-3month" value="65" min="0" max="100" step="1"></div>
+  <div class="input-group"><label>OTP (%)</label><input type="number" id="mix-otp" value="5" min="0" max="100" step="1"></div>
+</div>
+<div id="mix-warning" style="display: none; font-size: 13px; color: #ff673d; margin: -8px 0 20px;"></div>
+<div id="mix-ok" style="font-size: 13px; color: #401c16; margin: -8px 0 20px;">Totals 100%</div>
+
+<div class="legend-row">
+  <span><span class="legend-swatch" style="background:#c7b5a7;"></span>Current sheet</span>
+  <span><span class="legend-swatch" style="background:#ff673d;"></span>Your scenario</span>
+</div>
+<div id="chartWrap"><canvas id="aovChart"></canvas></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const CURRENT_PRICE_M = 40, CURRENT_PRICE_3 = 100;
+const CURRENT_MIX_M = 0.30, CURRENT_MIX_3 = 0.65;
+
+let monthlyCurve = [1.0];
+let threeMonthCurveCycles = [1.0];
+let chart;
+
+function threeMonthRevAt(month, price, disc) {
+  if (month % 3 !== 0) return 0;
+  const cyc = month / 3;
+  const r = cyc < threeMonthCurveCycles.length ? threeMonthCurveCycles[cyc] : threeMonthCurveCycles[threeMonthCurveCycles.length-1];
+  const effectivePrice = cyc === 0 ? price * (1 - disc/100) : price;
+  return effectivePrice * r;
+}
+function monthlyRevAt(month, price, disc) {
+  const r = month < monthlyCurve.length ? monthlyCurve[month] : monthlyCurve[monthlyCurve.length-1];
+  const effectivePrice = month === 0 ? price * (1 - disc/100) : price;
+  return effectivePrice * r;
+}
+function blendedAovAt(month, pM, p3, dM, d3, mM, m3) {
+  return mM * monthlyRevAt(month, pM, dM) + m3 * threeMonthRevAt(month, p3, d3);
+}
+
+const els = {
+  pM: document.getElementById('price-monthly'),
+  p3: document.getElementById('price-3month'),
+  pO: document.getElementById('price-otp'),
+  dM: document.getElementById('disc-monthly'),
+  d3: document.getElementById('disc-3month'),
+  mM: document.getElementById('mix-monthly'),
+  m3: document.getElementById('mix-3month'),
+  mO: document.getElementById('mix-otp'),
+};
+const outs = {};
+
+function checkMix() {
+  const total = Number(els.mM.value || 0) + Number(els.m3.value || 0) + Number(els.mO.value || 0);
+  const diff = 100 - total;
+  const warn = document.getElementById('mix-warning');
+  const ok = document.getElementById('mix-ok');
+  if (Math.abs(diff) < 0.01) {
+    warn.style.display = 'none';
+    ok.style.display = 'block';
+    return { valid: true, m: Number(els.mM.value)/100, t: Number(els.m3.value)/100, o: Number(els.mO.value)/100 };
+  }
+  ok.style.display = 'none';
+  warn.style.display = 'block';
+  warn.textContent = diff > 0
+    ? 'Totals ' + total.toFixed(0) + '%. Add ' + diff.toFixed(0) + ' more to reach 100%.'
+    : 'Totals ' + total.toFixed(0) + '%. Remove ' + Math.abs(diff).toFixed(0) + ' to reach 100%.';
+  return { valid: false };
+}
+
+function update() {
+  const mix = checkMix();
+  const pM = Number(els.pM.value) || 0;
+  const p3 = Number(els.p3.value) || 0;
+  const dM = Number(els.dM.value) || 0;
+  const d3 = Number(els.d3.value) || 0;
+
+  const months = Array.from({length: 13}, (_, i) => i);
+  const currentAov = months.map(t => blendedAovAt(t, CURRENT_PRICE_M, CURRENT_PRICE_3, 0, 0, CURRENT_MIX_M, CURRENT_MIX_3));
+
+  const aovOut = document.getElementById('aov-out');
+  const deltaEl = document.getElementById('delta-out');
+
+  if (!mix.valid) {
+    aovOut.textContent = '\u2014';
+    deltaEl.textContent = 'Fix mix total first';
+    deltaEl.style.color = '#ff673d';
+    if (chart) { chart.data.datasets[1].data = []; chart.update(); }
+    return;
+  }
+
+  const scenarioAov = months.map(t => blendedAovAt(t, pM, p3, dM, d3, mix.m, mix.t));
+  aovOut.textContent = '£' + scenarioAov[6].toFixed(2);
+  const delta = scenarioAov[6] - currentAov[6];
+  deltaEl.textContent = (delta >= 0 ? '+£' : '-£') + Math.abs(delta).toFixed(2);
+  deltaEl.style.color = delta >= 0 ? '#1a7a3f' : '#c0392b';
+
+  if (chart) {
+    chart.data.datasets[0].data = currentAov;
+    chart.data.datasets[1].data = scenarioAov;
+    chart.update();
+  } else {
+    chart = new Chart(document.getElementById('aovChart'), {
+      type: 'line',
+      data: {
+        labels: months,
+        datasets: [
+          { label: 'Current sheet', data: currentAov, borderColor: '#c7b5a7', backgroundColor: 'rgba(199,181,167,0.08)', borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: '#c7b5a7', tension: 0.15 },
+          { label: 'Your scenario', data: scenarioAov, borderColor: '#ff673d', backgroundColor: 'rgba(255,103,61,0.08)', borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: '#ff673d', tension: 0.15 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: { mode: 'index', intersect: false, backgroundColor: '#401c16', callbacks: { label: (c) => c.dataset.label + ': £' + c.parsed.y.toFixed(2) } }
+        },
+        scales: {
+          x: { title: { display: true, text: 'Months since signup', font: { size: 11 }, color: '#401c16' }, grid: { display: false }, ticks: { color: '#401c16' } },
+          y: { title: { display: true, text: 'Blended AOV (£)', font: { size: 11 }, color: '#401c16' }, grid: { color: 'rgba(211,229,200,0.5)' }, ticks: { color: '#401c16' } }
+        }
+      }
+    });
+  }
+}
+
+fetch('curves.json')
+  .then(r => r.json())
+  .then(data => {
+    monthlyCurve = data.monthly_curve;
+    threeMonthCurveCycles = data.threemonth_curve_cycles;
+    update();
+  })
+  .catch(() => {
+    update();
+  });
+
+[els.pM, els.p3, els.pO, els.dM, els.d3, els.mM, els.m3, els.mO].forEach(el => el.addEventListener('input', update));
+</script>
+</body>
+</html>
