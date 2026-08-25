@@ -32,7 +32,10 @@ from forecast_aop import load_cohorts, load_price_history, forecast_aop, month_i
 from estimate_current_mix import load_monthly_acquisitions, estimate_active
 from validate_final import run_backtest, REAL_HISTORICAL_AOP
 
-N_FORECAST_MONTHS = 12
+# Cash Flow!row17 runs through March 2029 in the current sheet -- if that
+# horizon ever changes, update FORECAST_END_MONTH to match (or better:
+# read it directly from model.xlsx's Cash Flow header row, see note below).
+FORECAST_END_MONTH = "2029-03"
 
 
 def month_label(idx):
@@ -41,6 +44,39 @@ def month_label(idx):
         y -= 1
         m = 12
     return f"{y}-{m:02d}"
+
+
+def load_current_row17_values(xlsx_path="model.xlsx"):
+    """
+    Reads the ACTUAL current values sitting in Cash Flow!row17, keyed by
+    month label -- so the report can show real old_value -> new_value,
+    not a generic "(placeholder)" string. Returns {} if model.xlsx isn't
+    present (falls back to a generic label so the pipeline still runs
+    without the workbook on hand).
+    """
+    try:
+        import openpyxl
+    except ImportError:
+        print("openpyxl not installed -- old values will show as '(unknown)'")
+        return {}
+
+    try:
+        wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=True)
+    except FileNotFoundError:
+        print(f"'{xlsx_path}' not found -- old values will show as '(unknown)'. "
+              f"Drop the current model.xlsx in this folder to see real old values.")
+        return {}
+
+    ws = wb["Cash Flow"]
+    rows = list(ws.iter_rows(values_only=True))
+    dates = rows[0]
+    aop_row = rows[16]  # row 17, 0-indexed
+
+    values = {}
+    for i, d in enumerate(dates):
+        if d is not None and hasattr(d, "strftime") and i < len(aop_row):
+            values[d.strftime("%Y-%m")] = aop_row[i]
+    return values
 
 
 def get_live_mix(price_history_path, curves):
@@ -91,31 +127,38 @@ def run():
         confidence, avg_pct, results = "LOW", None, []
         print("No months could be validated -- confidence LOW")
 
-    # --- Forecast forward from the last genuinely real month ---
+    # --- Forecast forward from the last genuinely real month, through to
+    # the sheet's actual horizon (FORECAST_END_MONTH) ---
     last_real_month = max(REAL_HISTORICAL_AOP.keys(), key=month_index)
     last_real_idx = month_index(last_real_month)
+    end_idx = month_index(FORECAST_END_MONTH)
+    n_forecast_months = end_idx - last_real_idx
     print(f"\nLast genuinely real AOP month: {last_real_month} "
           f"(confirmed via formula inspection -- see README)")
+    print(f"Forecasting {n_forecast_months} months forward, through {FORECAST_END_MONTH}")
 
     forecasts = {}
-    for i in range(1, N_FORECAST_MONTHS + 1):
+    for i in range(1, n_forecast_months + 1):
         idx = last_real_idx + i
         label = month_label(idx)
         forecasts[label] = forecast_aop(spells, idx, curves, price_history)
 
+    current_values = load_current_row17_values("model.xlsx")
+
     write_report(curves, mix_m, mix_3, confidence, avg_pct, results,
-                 last_real_month, forecasts)
+                 last_real_month, forecasts, current_values)
 
 
 def write_report(curves, mix_m, mix_3, confidence, avg_pct, cv_results,
-                  last_real_month, forecasts):
-    rows = []
-    for month, old, new, note in [
-        ("Cash Flow!row17 (Average Order Price)", "(unchanged for real months)",
-         "(see forecast table below)", "Real historical months are NOT touched -- "
-         "only months after " + last_real_month + " get the model's forecast."),
-    ]:
-        rows.append(dict(cell=old, old_value=old, new_value=new, note=note))
+                  last_real_month, forecasts, current_values):
+    def old_value_display(month):
+        v = current_values.get(month)
+        if v is None:
+            return "(unknown -- model.xlsx not found)"
+        try:
+            return f"£{float(v):.2f}"
+        except (TypeError, ValueError):
+            return str(v)
 
     with open("outputs/aop_report.md", "w") as f:
         f.write("# AOP Forecast Update -- Cash Flow!row17\n\n")
@@ -157,14 +200,15 @@ def write_report(curves, mix_m, mix_3, confidence, avg_pct, cv_results,
                 "in the real historical data used to validate this model.\n\n")
         f.write("| Month | Current sheet value | Recommended new value |\n|---|---|---|\n")
         for month, forecast in forecasts.items():
-            f.write(f"| {month} | (placeholder guess -- replace) | "
-                    f"£{forecast:.2f} |\n" if forecast else f"| {month} | (placeholder guess) | n/a |\n")
+            old_display = old_value_display(month)
+            new_display = f"£{forecast:.2f}" if forecast else "n/a"
+            f.write(f"| {month} | {old_display} | {new_display} |\n")
 
     with open("outputs/aop_cell_updates.csv", "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["cell", "month", "old_value", "new_value", "note"])
         for month, forecast in forecasts.items():
-            w.writerow(["Cash Flow!row17", month, "(placeholder -- replace)",
+            w.writerow(["Cash Flow!row17", month, old_value_display(month),
                         f"{forecast:.2f}" if forecast else "n/a",
                         f"Forecast, confidence={confidence}"])
 
