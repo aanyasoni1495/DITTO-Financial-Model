@@ -5,23 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DITTO AOV Simulator</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
-  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
-  .subtitle { font-size: 13px; color: #666; margin-bottom: 24px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; color: #401c16; background: #ffffff; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; color: #401c16; }
+  .subtitle { font-size: 13px; color: #401c16; margin-bottom: 24px; }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .card { background: #f5f5f4; border-radius: 8px; padding: 16px; }
-  .card-label { font-size: 13px; color: #666; margin-bottom: 4px; }
-  .card-value { font-size: 24px; font-weight: 600; }
-  .section-label { font-size: 13px; font-weight: 600; margin: 20px 0 8px; }
+  .card { background: #f0eee7; border-radius: 8px; padding: 16px; }
+  .card-label { font-size: 13px; color: #401c16; margin-bottom: 4px; }
+  .card-value { font-size: 24px; font-weight: 600; color: #401c16; }
+  .section-label { font-size: 13px; font-weight: 600; margin: 20px 0 8px; color: #401c16; }
   .input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
-  .input-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
-  input[type=number] { width: 100%; padding: 8px; border: 1px solid #d4d4d4; border-radius: 6px; font-size: 14px; box-sizing: border-box; }
-  .slider-row { margin-bottom: 12px; }
-  .slider-row-label { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 4px; }
-  input[type=range] { width: 100%; }
+  .input-group label { display: block; font-size: 12px; color: #401c16; margin-bottom: 4px; }
+  input[type=number] { width: 100%; padding: 8px; border: 1px solid #d3e5c8; border-radius: 6px; font-size: 14px; box-sizing: border-box; background: #ffffff; color: #401c16; }
+  input[type=number]:focus { outline: none; border-color: #ff673d; box-shadow: 0 0 0 3px rgba(255,103,61,0.15); }
   #chartWrap { position: relative; width: 100%; height: 280px; margin-bottom: 8px; }
-  .note { font-size: 11px; color: #999; }
-  .meta { font-size: 11px; color: #999; margin-top: 4px; }
+  .note { font-size: 11px; color: #401c16; }
+  .meta { font-size: 11px; color: #401c16; margin-top: 4px; }
+  .legend-row { display: flex; gap: 16px; margin-bottom: 8px; font-size: 12px; color: #401c16; }
+  .legend-row span { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
 </style>
 </head>
 <body>
@@ -52,9 +53,13 @@
   <div class="input-group"><label>3-Month (%)</label><input type="number" id="mix-3month" value="65" min="0" max="100" step="1"></div>
   <div class="input-group"><label>OTP (%)</label><input type="number" id="mix-otp" value="5" min="0" max="100" step="1"></div>
 </div>
-<div id="mix-warning" style="display: none; font-size: 13px; color: #b3261e; margin: -8px 0 20px;"></div>
-<div id="mix-ok" style="font-size: 13px; color: #1a7a3f; margin: -8px 0 20px;">Totals 100%</div>
+<div id="mix-warning" style="display: none; font-size: 13px; color: #ff673d; margin: -8px 0 20px;"></div>
+<div id="mix-ok" style="font-size: 13px; color: #401c16; margin: -8px 0 20px;">Totals 100%</div>
 
+<div class="legend-row">
+  <span><span class="legend-swatch" style="background:#c7b5a7;"></span>Current sheet</span>
+  <span><span class="legend-swatch" style="background:#ff673d;"></span>Your scenario</span>
+</div>
 <div id="chartWrap"><canvas id="aovChart"></canvas></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -128,7 +133,7 @@ function update() {
   if (!mix.valid) {
     aovOut.textContent = '\u2014';
     deltaEl.textContent = 'Fix mix total first';
-    deltaEl.style.color = '#b3261e';
+    deltaEl.style.color = '#ff673d';
     if (chart) { chart.data.datasets[1].data = []; chart.update(); }
     return;
   }
@@ -137,7 +142,7 @@ function update() {
   aovOut.textContent = '£' + scenarioAov[6].toFixed(2);
   const delta = scenarioAov[6] - currentAov[6];
   deltaEl.textContent = (delta >= 0 ? '+£' : '-£') + Math.abs(delta).toFixed(2);
-  deltaEl.style.color = delta >= 0 ? '#1a7a3f' : '#b3261e';
+  deltaEl.style.color = delta >= 0 ? '#401c16' : '#ff673d';
 
   if (chart) {
     chart.data.datasets[0].data = currentAov;
@@ -149,20 +154,20 @@ function update() {
       data: {
         labels: months,
         datasets: [
-          { label: 'Current sheet', data: currentAov, borderColor: '#8a8a86', borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, tension: 0.15 },
-          { label: 'Your scenario', data: scenarioAov, borderColor: '#2f6fb3', borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, tension: 0.15 },
+          { label: 'Current sheet', data: currentAov, borderColor: '#c7b5a7', backgroundColor: 'rgba(199,181,167,0.08)', borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: '#c7b5a7', tension: 0.15 },
+          { label: 'Your scenario', data: scenarioAov, borderColor: '#ff673d', backgroundColor: 'rgba(255,103,61,0.08)', borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: '#ff673d', tension: 0.15 },
         ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 12 } } },
-          tooltip: { mode: 'index', intersect: false, callbacks: { label: (c) => c.dataset.label + ': £' + c.parsed.y.toFixed(2) } }
+          legend: { display: false },
+          tooltip: { mode: 'index', intersect: false, backgroundColor: '#401c16', callbacks: { label: (c) => c.dataset.label + ': £' + c.parsed.y.toFixed(2) } }
         },
         scales: {
-          x: { title: { display: true, text: 'Months since signup', font: { size: 11 } }, grid: { display: false } },
-          y: { title: { display: true, text: 'Blended AOV (£)', font: { size: 11 } }, grid: { color: 'rgba(0,0,0,0.06)' } }
+          x: { title: { display: true, text: 'Months since signup', font: { size: 11 }, color: '#401c16' }, grid: { display: false }, ticks: { color: '#401c16' } },
+          y: { title: { display: true, text: 'Blended AOV (£)', font: { size: 11 }, color: '#401c16' }, grid: { color: 'rgba(211,229,200,0.5)' }, ticks: { color: '#401c16' } }
         }
       }
     });
