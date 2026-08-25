@@ -1,0 +1,222 @@
+{
+  "monthly": {
+    "2025-03": {
+      "price": 48.0,
+      "share_at_dominant_price": 0.826,
+      "n_orders": 23,
+      "n_distinct_prices": 2
+    },
+    "2025-04": {
+      "price": 33.0,
+      "share_at_dominant_price": 1.0,
+      "n_orders": 79,
+      "n_distinct_prices": 1
+    },
+    "2025-05": {
+      "price": 33.0,
+      "share_at_dominant_price": 0.994,
+      "n_orders": 171,
+      "n_distinct_prices": 2
+    },
+    "2025-06": {
+      "price": 33.0,
+      "share_at_dominant_price": 0.994,
+      "n_orders": 172,
+      "n_distinct_prices": 2
+    },
+    "2025-07": {
+      "price": 33.0,
+      "share_at_dominant_price": 0.692,
+      "n_orders": 253,
+      "n_distinct_prices": 3
+    },
+    "2025-08": {
+      "price": 26.4,
+      "share_at_dominant_price": 0.988,
+      "n_orders": 487,
+      "n_distinct_prices": 3
+    },
+    "2025-09": {
+      "price": 26.4,
+      "share_at_dominant_price": 0.647,
+      "n_orders": 451,
+      "n_distinct_prices": 4
+    },
+    "2025-10": {
+      "price": 28.5,
+      "share_at_dominant_price": 0.622,
+      "n_orders": 547,
+      "n_distinct_prices": 3
+    },
+    "2025-11": {
+      "price": 28.5,
+      "share_at_dominant_price": 0.489,
+      "n_orders": 857,
+      "n_distinct_prices": 4
+    },
+    "2025-12": {
+      "price": 28.5,
+      "share_at_dominant_price": 0.515,
+      "n_orders": 1370,
+      "n_distinct_prices": 3
+    },
+    "2026-01": {
+      "price": 28.5,
+      "share_at_dominant_price": 0.766,
+      "n_orders": 1517,
+      "n_distinct_prices": 8
+    },
+    "2026-02": {
+      "price": 29.9,
+      "share_at_dominant_price": 0.498,
+      "n_orders": 1405,
+      "n_distinct_prices": 8
+    },
+    "2026-03": {
+      "price": 34.95,
+      "share_at_dominant_price": 0.544,
+      "n_orders": 1638,
+      "n_distinct_prices": 9
+    },
+    "2026-04": {
+      "price": 34.95,
+      "share_at_dominant_price": 0.994,
+      "n_orders": 1770,
+      "n_distinct_prices": 2
+    },
+    "2026-05": {
+      "price": 34.95,
+      "share_at_dominant_price": 0.871,
+      "n_orders": 1837,
+      "n_distinct_prices": 5
+    },
+    "2026-06": {
+      "price": 37.95,
+      "share_at_dominant_price": 0.622,
+      "n_orders": 1571,
+      "n_distinct_prices": 5
+    },
+    "2026-07": {
+      "price": 37.95,
+      "share_at_dominant_price": 0.881,
+      "n_orders": 1298,
+      "n_distinct_prices": 3
+    },
+    "2026-08": {
+      "price": 37.95,
+      "share_at_dominant_price": 0.373,
+      "n_orders": 848,
+      "n_distinct_prices": 5
+    }
+  },
+  "threemonth": {
+    "2025-03": {
+      "price": 126.0,
+      "share_at_dominant_price": 0.833,
+      "n_orders": 12,
+      "n_distinct_prices": 3
+    },
+    "2025-04": {
+      "price": 87.0,
+      "share_at_dominant_price": 1.0,
+      "n_orders": 29,
+      "n_distinct_prices": 1
+    },
+    "2025-05": {
+      "price": 87.0,
+      "share_at_dominant_price": 0.98,
+      "n_orders": 51,
+      "n_distinct_prices": 2
+    },
+    "2025-06": {
+      "price": 87.0,
+      "share_at_dominant_price": 0.987,
+      "n_orders": 79,
+      "n_distinct_prices": 2
+    },
+    "2025-07": {
+      "price": 87.0,
+      "share_at_dominant_price": 0.756,
+      "n_orders": 90,
+      "n_distinct_prices": 2
+    },
+    "2025-08": {
+      "price": 73.5,
+      "share_at_dominant_price": 1.0,
+      "n_orders": 152,
+      "n_distinct_prices": 1
+    },
+    "2025-09": {
+      "price": 73.5,
+      "share_at_dominant_price": 0.66,
+      "n_orders": 147,
+      "n_distinct_prices": 3
+    },
+    "2025-10": {
+      "price": 78.75,
+      "share_at_dominant_price": 0.557,
+      "n_orders": 192,
+      "n_distinct_prices": 3
+    },
+    "2025-11": {
+      "price": 81.0,
+      "share_at_dominant_price": 1.0,
+      "n_orders": 301,
+      "n_distinct_prices": 1
+    },
+    "2025-12": {
+      "price": 81.0,
+      "share_at_dominant_price": 1.0,
+      "n_orders": 522,
+      "n_distinct_prices": 1
+    },
+    "2026-01": {
+      "price": 81.0,
+      "share_at_dominant_price": 0.754,
+      "n_orders": 670,
+      "n_distinct_prices": 3
+    },
+    "2026-02": {
+      "price": 72.0,
+      "share_at_dominant_price": 0.549,
+      "n_orders": 878,
+      "n_distinct_prices": 7
+    },
+    "2026-03": {
+      "price": 85.5,
+      "share_at_dominant_price": 0.539,
+      "n_orders": 1372,
+      "n_distinct_prices": 4
+    },
+    "2026-04": {
+      "price": 85.5,
+      "share_at_dominant_price": 1.0,
+      "n_orders": 1486,
+      "n_distinct_prices": 1
+    },
+    "2026-05": {
+      "price": 85.5,
+      "share_at_dominant_price": 0.616,
+      "n_orders": 1400,
+      "n_distinct_prices": 4
+    },
+    "2026-06": {
+      "price": 89.94,
+      "share_at_dominant_price": 0.82,
+      "n_orders": 1645,
+      "n_distinct_prices": 3
+    },
+    "2026-07": {
+      "price": 89.94,
+      "share_at_dominant_price": 0.87,
+      "n_orders": 3069,
+      "n_distinct_prices": 2
+    },
+    "2026-08": {
+      "price": 112.35,
+      "share_at_dominant_price": 0.378,
+      "n_orders": 3015,
+      "n_distinct_prices": 4
+    }
+  }
+}
