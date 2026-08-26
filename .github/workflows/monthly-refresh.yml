@@ -70,6 +70,9 @@ jobs:
       - name: Run AOP forecasting pipeline
         run: python3 src/run_aop_pipeline.py
 
+      - name: Export AOP forecast data for the Netlify page
+        run: python3 src/export_aop_data.py
+
       # --- Commit and push everything, so Netlify picks up the update ---
       - name: Commit and push refreshed data
         run: |

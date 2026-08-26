@@ -42,8 +42,19 @@ access can trigger this from the GitHub website.
    refreshed order data.
 6. **Runs the AOP forecast** (`run_aop_pipeline.py`) -- auto-detects the
    real/forecast boundary from `model.xlsx`'s own formulas, validates
-   against every real historical month, forecasts forward.
-7. **Commits and pushes** `data/`, `docs/`, `outputs/` -- never
+   against every real historical month, forecasts forward. Writes
+   `outputs/aop_report.md` and `outputs/aop_cell_updates.csv` (one fixed
+   recommendation per month).
+7. **Exports the interactive forecast page's data** (`export_aop_data.py`)
+   -- writes `docs/aop_data.json`, which `docs/aop_forecast.html` (the
+   Netlify page, linked from the AOV Simulator's nav bar) reads to let
+   someone try a hypothetical NEW-signup price for Cash Flow!row17 in the
+   browser. Real months, renewals, and new-signup volume/plan-split are
+   always fixed/real in this page -- only the price charged to future new
+   signups is adjustable, matching exactly what `forecast_aop.py` itself
+   supports (it pins one fixed price per plan; this page just lets that
+   price be edited instead of hardcoded).
+8. **Commits and pushes** `data/`, `docs/`, `outputs/` -- never
    `model.xlsx` itself (deleted at the end of the run, and excluded from
    git via `.gitignore` regardless).
 
