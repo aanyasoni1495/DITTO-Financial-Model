@@ -1,0 +1,90 @@
+name: Monthly Refresh
+
+# Manually triggered from the Actions tab -- click "Run workflow".
+# No schedule: a deliberate "refresh now" action, not automatic/silent.
+on:
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    # Required for Workload Identity Federation -- lets this job request
+    # an OIDC token to prove its identity to Google Cloud, with no
+    # long-lived key ever stored anywhere.
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt --break-system-packages
+          pip install openpyxl requests google-auth google-api-python-client --break-system-packages
+
+      # --- Google Drive: pull the latest model.xlsx, no key file needed ---
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ secrets.GDRIVE_PROJECT_NUMBER }}
+          workload_identity_provider: "projects/${{ secrets.GDRIVE_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ secrets.GDRIVE_WORKLOAD_POOL }}/providers/github-provider"
+          service_account: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Download model.xlsx from Google Drive
+        env:
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: python3 src/fetch_model_from_drive.py
+
+      # --- Retention model (sBG) -- untouched from the existing pipeline ---
+      - name: Extract cohort data from model.xlsx
+        run: python3 src/extract_data.py
+
+      - name: Fit sBG retention model
+        run: python3 src/run_pipeline.py
+
+      - name: Export live retention curves
+        run: python3 src/export_curves.py
+
+      # --- Shopify: pull recent orders via the API, merge into history ---
+      - name: Fetch recent Shopify orders via API
+        env:
+          SHOPIFY_ACCESS_TOKEN: ${{ secrets.SHOPIFY_ACCESS_TOKEN }}
+          SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
+        run: python3 src/fetch_shopify_orders_api.py
+
+      - name: Rebuild subscriber-level cohort data
+        run: python3 src/build_customer_cohorts.py
+
+      - name: Rebuild price history
+        run: python3 src/detect_price_changes.py
+
+      # --- AOP forecast (row17), using the freshly refreshed data above ---
+      - name: Run AOP forecasting pipeline
+        run: python3 src/run_aop_pipeline.py
+
+      # --- Commit and push everything, so Netlify picks up the update ---
+      - name: Commit and push refreshed data
+        run: |
+          git config user.name "DITTO Pipeline Bot"
+          git config user.email "ditto-pipeline-bot@users.noreply.github.com"
+          git add data/ docs/ outputs/
+          git diff --staged --quiet && echo "No changes to commit." || git commit -m "Monthly refresh: $(date -u +%Y-%m-%d)"
+          git push
+
+      - name: Clean up model.xlsx (never commit the live financial model)
+        run: rm -f model.xlsx
+
+      - name: Summary
+        run: |
+          echo "## Monthly refresh complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check outputs/report.md and outputs/aop_report.md for details." >> $GITHUB_STEP_SUMMARY
+          echo "The Netlify AOV tool will auto-redeploy with the refreshed data shortly." >> $GITHUB_STEP_SUMMARY
