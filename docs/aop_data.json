@@ -5,8 +5,19 @@
   "avg_error_pct": 4.8,
   "full_range_from_live_sheet": false,
   "baseline_new_signup_price": {
-    "monthly": 19.35,
-    "threemonth": 46.65
+    "monthly": 37.95,
+    "threemonth": 89.94,
+    "otp": 48.0
+  },
+  "baseline_discount": {
+    "monthly_pct": 45.7,
+    "threemonth_pct": 46.1
+  },
+  "baseline_mix": {
+    "monthly_pct": 28.2,
+    "threemonth_pct": 66.8,
+    "otp_pct": 5.0,
+    "otp_source": "sheet's Cohort Modelling!B11 mix + \u00a343-53 range midpoint price (no real OTP orders found yet for this month)"
   },
   "months": [
     {
@@ -349,6 +360,204 @@
       "renewal_orders": 771.46,
       "renewal_revenue": 28614.58,
       "total_new_signups": 21445.54
+    }
+  ],
+  "row17_columns": [
+    {
+      "type": "month",
+      "month": "2025-03"
+    },
+    {
+      "type": "month",
+      "month": "2025-04"
+    },
+    {
+      "type": "month",
+      "month": "2025-05"
+    },
+    {
+      "type": "month",
+      "month": "2025-06"
+    },
+    {
+      "type": "month",
+      "month": "2025-07"
+    },
+    {
+      "type": "month",
+      "month": "2025-08"
+    },
+    {
+      "type": "month",
+      "month": "2025-09"
+    },
+    {
+      "type": "month",
+      "month": "2025-10"
+    },
+    {
+      "type": "month",
+      "month": "2025-11"
+    },
+    {
+      "type": "month",
+      "month": "2025-12"
+    },
+    {
+      "type": "month",
+      "month": "2026-01"
+    },
+    {
+      "type": "month",
+      "month": "2026-02"
+    },
+    {
+      "type": "month",
+      "month": "2026-03"
+    },
+    {
+      "type": "month",
+      "month": "2026-04"
+    },
+    {
+      "type": "month",
+      "month": "2026-05"
+    },
+    {
+      "type": "month",
+      "month": "2026-06"
+    },
+    {
+      "type": "month",
+      "month": "2026-07"
+    },
+    {
+      "type": "month",
+      "month": "2026-08"
+    },
+    {
+      "type": "month",
+      "month": "2026-09"
+    },
+    {
+      "type": "month",
+      "month": "2026-10"
+    },
+    {
+      "type": "month",
+      "month": "2026-11"
+    },
+    {
+      "type": "month",
+      "month": "2026-12"
+    },
+    {
+      "type": "month",
+      "month": "2027-01"
+    },
+    {
+      "type": "month",
+      "month": "2027-02"
+    },
+    {
+      "type": "month",
+      "month": "2027-03"
+    },
+    {
+      "type": "month",
+      "month": "2027-04"
+    },
+    {
+      "type": "month",
+      "month": "2027-05"
+    },
+    {
+      "type": "month",
+      "month": "2027-06"
+    },
+    {
+      "type": "month",
+      "month": "2027-07"
+    },
+    {
+      "type": "month",
+      "month": "2027-08"
+    },
+    {
+      "type": "month",
+      "month": "2027-09"
+    },
+    {
+      "type": "month",
+      "month": "2027-10"
+    },
+    {
+      "type": "month",
+      "month": "2027-11"
+    },
+    {
+      "type": "month",
+      "month": "2027-12"
+    },
+    {
+      "type": "month",
+      "month": "2028-01"
+    },
+    {
+      "type": "month",
+      "month": "2028-02"
+    },
+    {
+      "type": "month",
+      "month": "2028-03"
+    },
+    {
+      "type": "month",
+      "month": "2028-04"
+    },
+    {
+      "type": "month",
+      "month": "2028-05"
+    },
+    {
+      "type": "month",
+      "month": "2028-06"
+    },
+    {
+      "type": "month",
+      "month": "2028-07"
+    },
+    {
+      "type": "month",
+      "month": "2028-08"
+    },
+    {
+      "type": "month",
+      "month": "2028-09"
+    },
+    {
+      "type": "month",
+      "month": "2028-10"
+    },
+    {
+      "type": "month",
+      "month": "2028-11"
+    },
+    {
+      "type": "month",
+      "month": "2028-12"
+    },
+    {
+      "type": "month",
+      "month": "2029-01"
+    },
+    {
+      "type": "month",
+      "month": "2029-02"
+    },
+    {
+      "type": "month",
+      "month": "2029-03"
     }
   ]
 }

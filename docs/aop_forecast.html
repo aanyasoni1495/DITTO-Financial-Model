@@ -93,6 +93,7 @@
   <div class="input-group"><label>3-Month (£)</label><input type="number" id="price-3month" min="0" step="1"></div>
   <div class="input-group"><label>OTP (£)</label><input type="number" id="price-otp" min="0" step="1"></div>
 </div>
+<p class="note" id="baseline-note" style="margin: -8px 0 20px;"></p>
 
 <div class="section-label">First-purchase discount</div>
 <div class="input-grid">
@@ -116,7 +117,7 @@
 <div id="chartWrap"><canvas id="aopChart"></canvas></div>
 <p class="note">Dashed context: everything before <span id="last-real-label"></span> is real, already in the sheet, and never changes here.
 The 3-month zig-zag pattern is real, not a bug -- 3-Month subscribers only renew every 3 months, so months where more of them land show a higher blended AOP.
-A hypothetical new signup created in a forecast month doesn't generate its own future renewals in this tool -- only real historical cohorts renew going forward.</p>
+A hypothetical new signup DOES renew forward in this tool too, at its own hypothetical price (not discounted, just like a real renewal) -- so a price/mix change compounds through every later forecast month, not just the month it happens in.</p>
 
 <div class="section-label" style="margin-top:28px;">Row17 values at your scenario</div>
 <div class="table-wrap">
@@ -128,8 +129,10 @@ A hypothetical new signup created in a forecast month doesn't generate its own f
 <button class="copy-btn" id="copy-btn">Copy row17 for pasting into the sheet</button>
 <span class="copy-confirm" id="copy-confirm">Copied</span>
 <p class="note" style="margin-top:8px;">Copies ONE row of numbers, in column order, exactly matching the sheet's own row17 layout --
-real months copy through completely untouched, forecast months use your scenario above. Paste directly into the
-first real month's cell in row17 and it should fill across correctly.</p>
+real months copy through completely untouched, forecast months use your scenario above, and any
+Year 1/2/3/4 AOP summary cells the sheet has (wherever they sit in the row) are recalculated live
+from your scenario too, not just the plain months. Paste directly into the first real month's cell
+in row17 and it should fill across correctly.</p>
 <p class="meta" id="generated-meta"></p>
 </div>
 
@@ -138,6 +141,7 @@ first real month's cell in row17 and it should fill across correctly.</p>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 let DATA = null;
+let CURVES = null;
 let chart = null;
 
 const els = {
@@ -151,6 +155,81 @@ const els = {
   m3: document.getElementById('mix-3month'),
   mO: document.getElementById('mix-otp'),
 };
+
+function monthIndex(label) {
+  const [y, m] = label.split('-').map(Number);
+  return y * 12 + m;
+}
+
+// Full forward simulation across every forecast month. This fixes a real
+// gap: a hypothetical new signup created in forecast month T used to only
+// contribute revenue in month T itself, then vanish -- it never renewed,
+// unlike REAL historical cohorts (which correctly renew via the same
+// retention curve). Now a hypothetical cohort behaves exactly like a real
+// one: it renews in later forecast months too, at ITS OWN locked-in price
+// (the hypothetical price set here, matching how real cohorts renew at
+// their own real price, never a discount -- the discount only ever
+// applies to a cohort's very first order).
+//
+// Returns an ordered array of {month, orders, revenue, aop} for every
+// FORECAST month, reusing the real renewal_orders/renewal_revenue that
+// the backend already computed from real historical cohorts (untouched),
+// and adding both (a) this month's own new first-order signups and
+// (b) renewals from every EARLIER forecast month's hypothetical cohort.
+function computeForecastSeries(pM, p3, pO, dM, d3, mix) {
+  const forecastMonths = DATA.months.filter(m => !m.is_real);
+  const effM = pM * (1 - dM / 100);
+  const eff3 = p3 * (1 - d3 / 100);
+  const curveM = CURVES.monthly_curve;
+  const curve3 = CURVES.threemonth_curve_cycles;
+
+  // Precompute each forecast month's own new-signup volume per plan (the
+  // fixed total split by the mix -- volume itself never changes).
+  const newVolume = forecastMonths.map(m => ({
+    idx: monthIndex(m.month),
+    nM: m.total_new_signups * mix.m,
+    n3: m.total_new_signups * mix.t,
+    nO: m.total_new_signups * mix.o,
+  }));
+
+  return forecastMonths.map((row, t) => {
+    let orders = row.renewal_orders;
+    let revenue = row.renewal_revenue;
+
+    // This month's own new signups -- first order, discount applies here only
+    const { nM: thisM, n3: this3, nO: thisO } = newVolume[t];
+    orders += thisM + this3 + thisO;
+    revenue += thisM * effM + this3 * eff3 + thisO * pO;
+
+    // Renewals from every EARLIER forecast month's hypothetical cohort --
+    // same retention-curve logic as real cohorts, full price (no discount,
+    // matching how a renewal is never discounted).
+    const thisIdx = newVolume[t].idx;
+    for (let e = 0; e < t; e++) {
+      const earlier = newVolume[e];
+      const monthsSince = thisIdx - earlier.idx;
+      if (monthsSince <= 0) continue;
+
+      if (monthsSince % 1 === 0 && earlier.nM > 0) {
+        const units = monthsSince; // Monthly cycle length = 1
+        const retention = units < curveM.length ? curveM[units] : curveM[curveM.length - 1];
+        const stillActive = earlier.nM * retention;
+        orders += stillActive;
+        revenue += stillActive * pM; // full price, never discounted on renewal
+      }
+      if (monthsSince % 3 === 0 && earlier.n3 > 0) {
+        const units = monthsSince / 3; // 3-Month cycle length = 3
+        const retention = units < curve3.length ? curve3[units] : curve3[curve3.length - 1];
+        const stillActive = earlier.n3 * retention;
+        orders += stillActive;
+        revenue += stillActive * p3;
+      }
+      // OTP never renews -- one-time by definition, no contribution here
+    }
+
+    return { month: row.month, orders, revenue, aop: orders > 0 ? revenue / orders : null };
+  });
+}
 
 function checkMix() {
   const total = Number(els.mM.value || 0) + Number(els.m3.value || 0) + Number(els.mO.value || 0);
@@ -170,31 +249,9 @@ function checkMix() {
   return { valid: false };
 }
 
-// Scenario AOP for one forecast-month row. Renewal orders/revenue are
-// real and untouched -- existing subscribers keep paying their own real
-// locked-in price. Total new-signup VOLUME is also untouched -- it comes
-// straight from the sheet's own acquisition forecast. What's hypothetical
-// here: how that fixed volume splits across Monthly/3-Month/OTP, what
-// each plan charges, and an optional first-purchase discount on the
-// recurring plans -- same inputs as the AOV Simulator.
-function scenarioAop(row, pM, p3, pO, dM, d3, mix) {
-  const total = row.total_new_signups;
-  const nM = total * mix.m, n3 = total * mix.t, nO = total * mix.o;
-  const effM = pM * (1 - dM / 100);
-  const eff3 = p3 * (1 - d3 / 100);
-  const orders = row.renewal_orders + nM + n3 + nO;
-  const revenue = row.renewal_revenue + nM * effM + n3 * eff3 + nO * pO;
-  return orders > 0 ? revenue / orders : null;
-}
-
 function currentSheetValueForMonth(m) {
   if (m.is_real) return m.actual_aop;
   return m.current_sheet_value != null ? m.current_sheet_value : null;
-}
-
-function valueForMonth(m, pM, p3, pO, dM, d3, mix) {
-  if (m.is_real) return m.actual_aop;
-  return scenarioAop(m, pM, p3, pO, dM, d3, mix);
 }
 
 function render() {
@@ -212,8 +269,7 @@ function render() {
   const deltaOut = document.getElementById('delta-out');
   const aopSub = document.getElementById('aop-sub');
 
-  const selectedRow = DATA.months.find(m => m.month === els.monthSelect.value);
-  let scenarioSeries;
+  let scenarioSeries, forecastSeries = null;
 
   if (!mix.valid) {
     aopOut.textContent = '\u2014';
@@ -221,9 +277,13 @@ function render() {
     deltaOut.style.color = '#ff673d';
     scenarioSeries = labels.map(() => null);
   } else {
-    scenarioSeries = DATA.months.map(m => valueForMonth(m, pM, p3, pO, dM, d3, mix));
+    forecastSeries = computeForecastSeries(pM, p3, pO, dM, d3, mix);
+    const forecastByMonth = new Map(forecastSeries.map(r => [r.month, r.aop]));
+    scenarioSeries = DATA.months.map(m => m.is_real ? m.actual_aop : forecastByMonth.get(m.month));
+
+    const selectedRow = DATA.months.find(m => m.month === els.monthSelect.value);
     if (selectedRow) {
-      const val = valueForMonth(selectedRow, pM, p3, pO, dM, d3, mix);
+      const val = selectedRow.is_real ? selectedRow.actual_aop : forecastByMonth.get(selectedRow.month);
       const baseline = currentSheetValueForMonth(selectedRow);
       aopOut.textContent = val != null ? '£' + val.toFixed(2) : '\u2014';
       aopSub.textContent = selectedRow.is_real ? 'Real historical month' : 'Forecast';
@@ -271,17 +331,16 @@ function render() {
     });
   }
 
-  renderUpdatesTable(pM, p3, pO, dM, d3, mix);
+  renderUpdatesTable(forecastSeries);
 }
 
-function renderUpdatesTable(pM, p3, pO, dM, d3, mix) {
+function renderUpdatesTable(forecastSeries) {
   const body = document.getElementById('updates-body');
   body.innerHTML = '';
-  DATA.months.filter(m => !m.is_real).forEach(m => {
-    const scenario = mix.valid ? scenarioAop(m, pM, p3, pO, dM, d3, mix) : null;
+  (forecastSeries || []).forEach(r => {
     const tr = document.createElement('tr');
-    const display = scenario != null ? '£' + scenario.toFixed(2) : 'n/a';
-    tr.innerHTML = `<td>${m.month}</td><td class="num">${display}</td>`;
+    const display = r.aop != null ? '£' + r.aop.toFixed(2) : 'n/a';
+    tr.innerHTML = `<td>${r.month}</td><td class="num">${display}</td>`;
     body.appendChild(tr);
   });
 }
@@ -295,10 +354,41 @@ function copyRow17() {
   const dM = Number(els.dM.value) || 0;
   const d3 = Number(els.d3.value) || 0;
 
-  const values = DATA.months.map(m => {
-    const v = valueForMonth(m, pM, p3, pO, dM, d3, mix);
-    return v != null ? v.toFixed(2) : '';
+  const forecastSeries = computeForecastSeries(pM, p3, pO, dM, d3, mix);
+  const forecastByMonth = new Map(forecastSeries.map(r => [r.month, r.aop]));
+  const monthByLabel = new Map(DATA.months.map(m => [m.month, m]));
+
+  function valueForMonthLabel(label) {
+    const m = monthByLabel.get(label);
+    if (!m) return null;
+    return m.is_real ? m.actual_aop : forecastByMonth.get(label);
+  }
+
+  const columns = DATA.row17_columns && DATA.row17_columns.length
+    ? DATA.row17_columns
+    : DATA.months.map(m => ({ type: 'month', month: m.month })); // fallback: no live-sheet layout available
+
+  const values = columns.map(col => {
+    if (col.type === 'month') {
+      const v = valueForMonthLabel(col.month);
+      return v != null ? v.toFixed(2) : '';
+    }
+    // Summary column (e.g. "Year 1 AOP"). If its formula resolved to a
+    // set of months, recompute it live as the average of those months'
+    // current real/scenario values -- so it moves with your scenario
+    // just like the sheet's own formula would. If it couldn't be
+    // resolved, pass through the sheet's original value untouched --
+    // still correctly positioned, just not recalculated.
+    if (col.covers_months && col.covers_months.length) {
+      const vals = col.covers_months.map(valueForMonthLabel).filter(v => v != null);
+      if (vals.length) {
+        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+        return avg.toFixed(2);
+      }
+    }
+    return col.sheet_value != null ? col.sheet_value.toFixed(2) : '';
   });
+
   const text = values.join('\t');
   navigator.clipboard.writeText(text).then(() => {
     const c = document.getElementById('copy-confirm');
@@ -307,16 +397,29 @@ function copyRow17() {
   });
 }
 
-fetch('aop_data.json')
-  .then(r => { if (!r.ok) throw new Error('aop_data.json not found (' + r.status + ')'); return r.json(); })
-  .then(data => {
+Promise.all([
+  fetch('aop_data.json').then(r => { if (!r.ok) throw new Error('aop_data.json not found (' + r.status + ')'); return r.json(); }),
+  fetch('curves.json').then(r => { if (!r.ok) throw new Error('curves.json not found (' + r.status + ')'); return r.json(); }),
+])
+  .then(([data, curves]) => {
     DATA = data;
+    CURVES = curves;
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
 
     els.pM.value = data.baseline_new_signup_price.monthly.toFixed(2);
     els.p3.value = data.baseline_new_signup_price.threemonth.toFixed(2);
-    els.pO.value = data.baseline_new_signup_price.threemonth.toFixed(2);
+    els.pO.value = data.baseline_new_signup_price.otp.toFixed(2);
+    els.dM.value = data.baseline_discount.monthly_pct;
+    els.d3.value = data.baseline_discount.threemonth_pct;
+    els.mM.value = data.baseline_mix.monthly_pct;
+    els.m3.value = data.baseline_mix.threemonth_pct;
+    els.mO.value = data.baseline_mix.otp_pct;
+
+    document.getElementById('baseline-note').textContent =
+      'Defaults reflect ' + data.last_real_month + '\'s own real Shopify orders (recurring price, first-purchase ' +
+      'discount, and mix are all computed from real signups that month). OTP: ' + data.baseline_mix.otp_source +
+      '. Edit any of these to whatever you actually expect.';
 
     document.getElementById('confidence-out').textContent =
       data.confidence + (data.avg_error_pct != null ? ' (avg error ' + data.avg_error_pct + '%)' : '');

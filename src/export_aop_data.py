@@ -47,6 +47,7 @@ introduced by this script.
 Usage:
     python3 src/export_aop_data.py
 """
+import csv
 import json
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -54,7 +55,6 @@ from datetime import datetime, timezone
 from forecast_aop import (load_cohorts, load_price_history, load_sheet_acquisition_forecast,
                            resolve_recurring_price, month_index)
 from validate_final import REAL_HISTORICAL_AOP, run_backtest
-import forecast_aop as fa
 
 
 def month_label(idx):
@@ -65,22 +65,63 @@ def month_label(idx):
     return f"{y}-{m:02d}"
 
 
+import re
+from openpyxl.utils import column_index_from_string
+
+
+def parse_referenced_row17_columns(formula, row_num=17):
+    """
+    Extracts every column a formula references, restricted to cells IN
+    row `row_num` -- handles both range refs (E17:P17) and standalone
+    refs (E17), and ignores anything referencing a different row (a
+    Year-summary formula should only reference other row17 cells, but
+    this guards against confusion if it somehow references elsewhere).
+    Returns a sorted list of 1-indexed column numbers.
+    """
+    cols = set()
+    for m in re.finditer(r"\$?([A-Z]{1,3})\$?(\d+)\s*:\s*\$?([A-Z]{1,3})\$?(\d+)", formula):
+        c1, r1, c2, r2 = m.groups()
+        if int(r1) == row_num and int(r2) == row_num:
+            i1, i2 = column_index_from_string(c1), column_index_from_string(c2)
+            cols.update(range(min(i1, i2), max(i1, i2) + 1))
+    for m in re.finditer(r"\$?([A-Z]{1,3})\$?(\d+)", formula):
+        c, r = m.groups()
+        if int(r) == row_num:
+            cols.add(column_index_from_string(c))
+    return sorted(cols)
+
+
 def load_full_row17(xlsx_path="model.xlsx"):
     """
-    Reads EVERY column of Cash Flow!row17 directly from the live sheet --
-    both the computed value (data_only=True workbook) and whether that
-    cell holds a formula or a plain hardcoded number (data_only=False
-    workbook). A formula cell means the month is real and already
-    computed by the sheet itself -- kept exactly as-is, never touched. A
-    plain number means it's a hand-typed placeholder guess -- exactly the
-    kind of cell this tool is meant to help replace.
+    Reads EVERY column of Cash Flow!row17 directly from the live sheet,
+    in their ACTUAL left-to-right order -- not just the monthly columns.
 
-    Returns an ordered list of {month, is_real, sheet_value}, sorted by
-    date, covering the sheet's actual full range -- whatever that
-    currently is. Returns [] if model.xlsx isn't present (e.g. running
-    this script outside the automation pipeline, with no workbook on
-    hand) -- callers should fall back to a smaller hardcoded range in
-    that case, clearly logged, rather than silently exporting nothing.
+    Some sheets (confirmed: this one does) have "Year 1 AOP" / "Year 2
+    AOP" etc. summary cells interspersed AMONG the monthly columns, not
+    just appended at the end. An earlier version of this function only
+    kept columns with a real date header and silently dropped everything
+    else -- which meant a straight tab-separated copy-paste ended up
+    missing those summary columns entirely, shifting every column after
+    them out of alignment with the real sheet. Fixed by keeping every
+    column, in order, and classifying each one:
+
+      - "month": header is a real date. Same as before -- a FORMULA cell
+        means the month is real (kept exactly as-is); a plain hardcoded
+        number means it's a forecast placeholder this tool can help
+        replace.
+      - "summary": header is NOT a date (e.g. "Year 1 AOP", or blank).
+        If the cell holds a formula, the formula's own cell-range
+        reference is parsed directly (e.g. "=AVERAGE(E17:P17)" ->
+        columns E through P) and resolved to the actual month labels
+        those columns represent, so the front-end can recompute a live
+        "Year N average" from whatever real/scenario values apply to
+        exactly those months -- not a guess about which months belong to
+        which year. If the formula can't be parsed (or it's a plain
+        number), the column still keeps its exact position (so
+        everything after it stays aligned), but its value is passed
+        through as a static, non-recalculating placeholder.
+
+    Returns [] if model.xlsx isn't present, same as before.
     """
     try:
         import openpyxl
@@ -103,18 +144,43 @@ def load_full_row17(xlsx_path="model.xlsx"):
     value_row = next(ws_values.iter_rows(min_row=17, max_row=17, values_only=True))
     formula_row = next(ws_formulas.iter_rows(min_row=17, max_row=17, values_only=True))
 
+    col_to_month = {}
     columns = []
-    for d, val, raw in zip(date_row, value_row, formula_row):
-        if d is None or not hasattr(d, "strftime"):
-            continue
+    for col_idx, (d, val, raw) in enumerate(zip(date_row, value_row, formula_row), start=1):
         is_formula = isinstance(raw, str) and raw.startswith("=")
-        columns.append({
-            "month": d.strftime("%Y-%m"),
-            "is_real": is_formula,
-            "sheet_value": round(float(val), 4) if isinstance(val, (int, float)) else None,
-        })
+        sheet_value = round(float(val), 4) if isinstance(val, (int, float)) else None
+        if d is not None and hasattr(d, "strftime"):
+            m = d.strftime("%Y-%m")
+            col_to_month[col_idx] = m
+            columns.append({"type": "month", "col_idx": col_idx, "month": m,
+                             "is_real": is_formula, "sheet_value": sheet_value})
+        else:
+            columns.append({"type": "summary", "col_idx": col_idx,
+                             "label": d if isinstance(d, str) else None,
+                             "sheet_value": sheet_value,
+                             "raw_formula": raw if isinstance(raw, str) else None})
 
-    columns.sort(key=lambda c: month_index(c["month"]))
+    for col in columns:
+        if col["type"] != "summary":
+            continue
+        covers = None
+        if col["raw_formula"]:
+            ref_cols = parse_referenced_row17_columns(col["raw_formula"])
+            resolved = [col_to_month[c] for c in ref_cols if c in col_to_month]
+            covers = resolved if resolved else None
+        col["covers_months"] = covers
+        del col["raw_formula"]
+
+    # Drop any leading columns before the first real month column -- these
+    # are row/column labels (e.g. column A holding "Average Order Price"
+    # as a row title), not part of the actual date-indexed data range.
+    # Including them would shift every real column one position to the
+    # right in the copy-paste output, reintroducing the exact alignment
+    # bug this function exists to fix.
+    first_month_pos = next((i for i, c in enumerate(columns) if c["type"] == "month"), None)
+    if first_month_pos:
+        columns = columns[first_month_pos:]
+
     return columns
 
 
@@ -168,6 +234,137 @@ def decompose_month(spells, forecast_month_idx, curves, price_history, sheet_acq
     }
 
 
+def compute_otp_stats(orders_path, month_label):
+    """
+    Real count and average price paid for OTP (one-time purchase) orders
+    in a given month -- straightforward, unlike Monthly/3-Month, since OTP
+    orders don't have a separate "recurring price" concept; there's just
+    one order.
+
+    IMPORTANT CAVEAT: orders_clean.csv, as it currently exists in this
+    repo, has ZERO OTP rows -- an earlier bug in extract_shopify_orders.py
+    silently discarded every order with no subscription tag (see that
+    file's parse_plan docstring for the fix). That fix only affects
+    EXTRACTION GOING FORWARD -- it can't retroactively recover OTP orders
+    that were already stripped out of the existing orders_clean.csv
+    before this fix existed. Until orders_clean.csv is rebuilt from the
+    original raw Shopify export files (or enough time passes that fresh
+    API-pulled months accumulate real OTP data), this will correctly
+    return zero -- callers should treat that as "not available yet", not
+    "OTP genuinely doesn't happen."
+    """
+    count, total = 0, 0.0
+    with open(orders_path) as f:
+        for row in csv.DictReader(f):
+            if row.get("plan") == "OTP" and row.get("date", "").startswith(month_label):
+                count += 1
+                total += float(row.get("total_paid") or 0)
+    return {"count": count, "avg_price": round(total / count, 2) if count else None}
+
+
+def compute_month_baseline(month_label, spells, price_history, otp_mix_fraction=None,
+                            otp_stats=None):
+    """
+    Computes the REAL price/discount/mix for whichever month is passed in
+    (always the last real month, whatever that currently is -- see run()).
+    This becomes the default values on the AOP Forecast page's inputs,
+    so every time the automation runs against a newer month's data, the
+    defaults move forward automatically -- no hardcoded "August" price
+    to go stale.
+
+    Monthly and 3-Month numbers are entirely real, computed from that
+    month's actual signups (data/customer_cohorts.csv) and that month's
+    actual list price (data/price_history.json):
+      - recurring price = that month's dominant list price
+      - first-purchase discount = 1 - (real avg first-order paid / list price)
+      - mix = real share of that month's signups on each plan
+
+    OTP has NO real equivalent anywhere in this pipeline -- Shopify orders
+    aren't classified into an "OTP" category the way Monthly/3-Month are,
+    and the sheet has no OTP price assumption either (only an OTP MIX
+    assumption, Cohort Modelling!B11). So OTP's mix defaults to that sheet
+    assumption if available (else a fallback), and OTP's PRICE has no real
+    default at all -- callers should treat it as a placeholder the person
+    is expected to fill in themselves, not a computed number.
+    """
+    by_plan = defaultdict(list)
+    for s in spells:
+        if s["signup_month"] == month_label:
+            by_plan[s["plan"]].append(s)
+
+    n_monthly = len(by_plan["Monthly"])
+    n_3month = len(by_plan["3-Month"])
+    n_otp = otp_stats["count"] if otp_stats else 0
+    total_real_signups = n_monthly + n_3month + n_otp
+
+    def list_price(plan_key):
+        hist = price_history.get(plan_key, {})
+        return hist.get(month_label, {}).get("price")
+
+    monthly_list_price = list_price("monthly")
+    threemonth_list_price = list_price("threemonth")
+
+    def discount_pct(cohort_spells, list_price_val):
+        if not cohort_spells or not list_price_val:
+            return 0.0
+        avg_first = sum(s["first_order_paid"] for s in cohort_spells) / len(cohort_spells)
+        return max(0.0, min(100.0, (1 - avg_first / list_price_val) * 100))
+
+    disc_monthly = discount_pct(by_plan["Monthly"], monthly_list_price)
+    disc_3month = discount_pct(by_plan["3-Month"], threemonth_list_price)
+
+    if n_otp > 0:
+        # Real OTP data available for this month -- use it directly, and
+        # derive OTP's mix share from real counts alongside Monthly/3-Month
+        # (rather than a separate sheet assumption -- once real data
+        # exists, it's the more trustworthy source).
+        otp_price = otp_stats["avg_price"]
+        mix_monthly = n_monthly / total_real_signups
+        mix_3month = n_3month / total_real_signups
+        mix_otp = n_otp / total_real_signups
+        otp_source = f"real OTP orders this month (n={n_otp})"
+    else:
+        # No real OTP data yet for this month (see compute_otp_stats
+        # docstring -- historical OTP orders were discarded by a bug fixed
+        # in extract_shopify_orders.py, but that fix can't retroactively
+        # recover already-stripped rows). Falls back to the sheet's own
+        # OTP mix assumption for the SPLIT, and a documented placeholder
+        # price (midpoint of DITTO's own stated typical OTP range,
+        # £43-53) -- not computed from data, and the page says so.
+        otp_price = 48.0
+        otp_mix = otp_mix_fraction if otp_mix_fraction is not None else 0.05
+        remaining = 1 - otp_mix
+        if (n_monthly + n_3month) > 0:
+            mix_monthly = (n_monthly / (n_monthly + n_3month)) * remaining
+            mix_3month = (n_3month / (n_monthly + n_3month)) * remaining
+        else:
+            mix_monthly, mix_3month = remaining / 2, remaining / 2
+        mix_otp = otp_mix
+        otp_source = ("sheet's Cohort Modelling!B11 mix + £43-53 range midpoint price "
+                       "(no real OTP orders found yet for this month)")
+
+    return {
+        "monthly": round(monthly_list_price, 2) if monthly_list_price else None,
+        "threemonth": round(threemonth_list_price, 2) if threemonth_list_price else None,
+        "otp": round(otp_price, 2),
+        "discount_monthly_pct": round(disc_monthly, 1),
+        "discount_3month_pct": round(disc_3month, 1),
+        "mix_monthly_pct": round(mix_monthly * 100, 1),
+        "mix_3month_pct": round(mix_3month * 100, 1),
+        "mix_otp_pct": round(mix_otp * 100, 1),
+        "otp_source": otp_source,
+    }
+
+
+def get_otp_mix_from_sheet(xlsx_path="model.xlsx"):
+    try:
+        from read_model_state import read_model_state
+        state = read_model_state(xlsx_path)
+        return state.get("mix_otp")
+    except Exception:
+        return None
+
+
 def run():
     with open("docs/curves.json") as f:
         curves = json.load(f)
@@ -189,67 +386,102 @@ def run():
         confidence, avg_pct = "LOW", None
 
     row17 = load_full_row17("model.xlsx")
+    row17_months = [c for c in row17 if c["type"] == "month"]
 
     months = []
-    if row17:
+    row17_columns = []  # full ordered layout, including summary columns, for the copy-to-sheet feature
+    if row17_months:
         # Live sheet available -- use its ACTUAL full range and its own
         # formula-vs-literal distinction. This is the accurate path,
         # used every time the automation runs for real.
-        last_real_month = max((c["month"] for c in row17 if c["is_real"]), key=month_index)
-        print(f"Read live row17 from model.xlsx: {row17[0]['month']} to {row17[-1]['month']}, "
+        last_real_month = max((c["month"] for c in row17_months if c["is_real"]), key=month_index)
+        n_summary = sum(1 for c in row17 if c["type"] == "summary")
+        print(f"Read live row17 from model.xlsx: {row17_months[0]['month']} to {row17_months[-1]['month']}, "
+              f"{len(row17_months)} month columns + {n_summary} summary columns (e.g. Year N AOP), "
               f"last real month = {last_real_month}")
         for col in row17:
-            if col["is_real"]:
-                months.append({
-                    "month": col["month"],
-                    "is_real": True,
-                    "actual_aop": col["sheet_value"],
-                })
+            if col["type"] == "month":
+                if col["is_real"]:
+                    months.append({"month": col["month"], "is_real": True, "actual_aop": col["sheet_value"]})
+                else:
+                    idx = month_index(col["month"])
+                    pieces = decompose_month(spells, idx, curves, price_history, sheet_acquisitions)
+                    months.append({"month": col["month"], "is_real": False,
+                                   "current_sheet_value": col["sheet_value"], **pieces})
+                row17_columns.append({"type": "month", "month": col["month"]})
             else:
-                idx = month_index(col["month"])
-                pieces = decompose_month(spells, idx, curves, price_history, sheet_acquisitions)
-                months.append({
-                    "month": col["month"],
-                    "is_real": False,
-                    "current_sheet_value": col["sheet_value"],
-                    **pieces,
-                })
+                # Summary column (e.g. "Year 1 AOP"). If its formula could
+                # be resolved to a set of month columns, the front-end
+                # recomputes it live as the average of those months' real/
+                # scenario values. If not, it's passed through as a static
+                # placeholder -- still correctly positioned, just not
+                # recalculated.
+                row17_columns.append({"type": "summary", "label": col["label"],
+                                       "covers_months": col["covers_months"],
+                                       "sheet_value": col["sheet_value"]})
     else:
         # Fallback -- no model.xlsx on hand (e.g. testing locally without
         # the workbook). Covers only the previously-validated real months
         # plus a fixed 32-month forecast window, so the page still works,
-        # just with a narrower range than the live sheet actually has.
-        print("No model.xlsx -- using fallback range (validated real months + 32 forecast months). "
-              "Re-run inside the automation pipeline (where model.xlsx is present) for the full, "
-              "exact column range matching the live sheet.")
+        # just with a narrower range than the live sheet actually has, and
+        # WITHOUT any Year-N summary columns (those can only be discovered
+        # by reading the live sheet) -- the copy feature falls back to a
+        # plain month-only row in this case, clearly flagged on the page.
+        print("No model.xlsx -- using fallback range (validated real months + 32 forecast months, no "
+              "Year-N summary columns). Re-run inside the automation pipeline (where model.xlsx is "
+              "present) for the full, exact column layout matching the live sheet.")
         last_real_month = max(REAL_HISTORICAL_AOP.keys(), key=month_index)
         last_real_idx = month_index(last_real_month)
         for m in sorted(REAL_HISTORICAL_AOP.keys(), key=month_index):
             months.append({"month": m, "is_real": True, "actual_aop": REAL_HISTORICAL_AOP[m]})
+            row17_columns.append({"type": "month", "month": m})
         for i in range(1, 33):
             idx = last_real_idx + i
             label = month_label(idx)
             pieces = decompose_month(spells, idx, curves, price_history, sheet_acquisitions)
             months.append({"month": label, "is_real": False, "current_sheet_value": None, **pieces})
+            row17_columns.append({"type": "month", "month": label})
+
+    otp_mix_fraction = get_otp_mix_from_sheet("model.xlsx")
+    otp_stats = compute_otp_stats("data/orders_clean.csv", last_real_month)
+    baseline = compute_month_baseline(last_real_month, spells, price_history, otp_mix_fraction, otp_stats)
+    print(f"Baseline computed from {last_real_month} (last real month): "
+          f"Monthly £{baseline['monthly']} ({baseline['discount_monthly_pct']}% first-purchase discount), "
+          f"3-Month £{baseline['threemonth']} ({baseline['discount_3month_pct']}%), "
+          f"OTP £{baseline['otp']}, "
+          f"mix {baseline['mix_monthly_pct']}/{baseline['mix_3month_pct']}/{baseline['mix_otp_pct']} "
+          f"(OTP source: {baseline['otp_source']})")
 
     data = {
         "generated_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "last_real_month": last_real_month,
         "confidence": confidence,
         "avg_error_pct": round(avg_pct, 1) if avg_pct is not None else None,
-        "full_range_from_live_sheet": bool(row17),
-        # Read fresh from the module (not imported by name at the top of
-        # this file) -- run_backtest temporarily overwrites this dict's
-        # contents while testing historical months, and its "restore"
-        # step reassigns the module attribute rather than mutating back
-        # in place, so a name bound at import time would keep pointing at
-        # a stale, mutated value. Accessing it via fa.AUGUST_AVG_PRICE
-        # here, after run_backtest has already finished, avoids that.
+        "full_range_from_live_sheet": bool(row17_months),
+        # Real, computed from last_real_month's own actual Shopify orders
+        # and the sheet's own OTP mix assumption -- recalculated every run,
+        # so the default always reflects the MOST RECENT real month, not a
+        # fixed hardcoded month. Note: OTP has no real price anywhere in
+        # this pipeline (Shopify orders aren't classified into an OTP
+        # category) -- that one field is a placeholder for the person to
+        # set themselves, not a computed number.
         "baseline_new_signup_price": {
-            "monthly": round(fa.AUGUST_AVG_PRICE["Monthly"], 2),
-            "threemonth": round(fa.AUGUST_AVG_PRICE["3-Month"], 2),
+            "monthly": baseline["monthly"],
+            "threemonth": baseline["threemonth"],
+            "otp": baseline["otp"],
+        },
+        "baseline_discount": {
+            "monthly_pct": baseline["discount_monthly_pct"],
+            "threemonth_pct": baseline["discount_3month_pct"],
+        },
+        "baseline_mix": {
+            "monthly_pct": baseline["mix_monthly_pct"],
+            "threemonth_pct": baseline["mix_3month_pct"],
+            "otp_pct": baseline["mix_otp_pct"],
+            "otp_source": baseline["otp_source"],
         },
         "months": months,
+        "row17_columns": row17_columns,
     }
 
     with open("docs/aop_data.json", "w") as f:
