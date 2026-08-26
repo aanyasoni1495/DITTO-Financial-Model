@@ -187,23 +187,14 @@ function scenarioAop(row, pM, p3, pO, dM, d3, mix) {
   return orders > 0 ? revenue / orders : null;
 }
 
-function baselineAop(row) {
-  // Reasonable reference line for forecast months when the live sheet's
-  // own placeholder isn't available (e.g. testing without model.xlsx):
-  // sheet's historical average plan split, August's real average price,
-  // no discount.
-  return scenarioAop(row, DATA.baseline_new_signup_price.monthly, DATA.baseline_new_signup_price.threemonth, 0,
-                      0, 0, { m: 0.3, t: 0.65, o: 0.05 });
+function currentSheetValueForMonth(m) {
+  if (m.is_real) return m.actual_aop;
+  return m.current_sheet_value != null ? m.current_sheet_value : null;
 }
 
 function valueForMonth(m, pM, p3, pO, dM, d3, mix) {
   if (m.is_real) return m.actual_aop;
   return scenarioAop(m, pM, p3, pO, dM, d3, mix);
-}
-
-function currentSheetValueForMonth(m) {
-  if (m.is_real) return m.actual_aop;
-  return m.current_sheet_value != null ? m.current_sheet_value : baselineAop(m);
 }
 
 function render() {
@@ -236,9 +227,14 @@ function render() {
       const baseline = currentSheetValueForMonth(selectedRow);
       aopOut.textContent = val != null ? '£' + val.toFixed(2) : '\u2014';
       aopSub.textContent = selectedRow.is_real ? 'Real historical month' : 'Forecast';
-      const delta = val - baseline;
-      deltaOut.textContent = (delta >= 0 ? '+£' : '-£') + Math.abs(delta).toFixed(2);
-      deltaOut.style.color = delta >= 0 ? '#1a7a3f' : '#c0392b';
+      if (baseline == null) {
+        deltaOut.textContent = '(current sheet unknown)';
+        deltaOut.style.color = '#401c16';
+      } else {
+        const delta = val - baseline;
+        deltaOut.textContent = (delta >= 0 ? '+£' : '-£') + Math.abs(delta).toFixed(2);
+        deltaOut.style.color = delta >= 0 ? '#1a7a3f' : '#c0392b';
+      }
     }
   }
 
