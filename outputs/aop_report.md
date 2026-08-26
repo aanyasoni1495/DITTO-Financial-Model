@@ -1,11 +1,11 @@
 # AOP Forecast Update -- Cash Flow!row17
 
-Generated using the live retention curve (Monthly: sBG, 3-Month: sBG, curve dated 2026-08-24). Re-running this after the retention model refits will automatically use the new curve -- nothing here is hardcoded.
+Generated using the live retention curve (Monthly: sBG, 3-Month: sBG, curve dated 2026-08-26). Re-running this after the retention model refits will automatically use the new curve -- nothing here is hardcoded.
 
 ## Current active-subscriber mix (derived, not assumed)
 
-- Monthly: 34.8%
-- 3-Month: 65.2%
+- Monthly: 34.6%
+- 3-Month: 65.4%
 
 Held FIXED going forward for this forecast (matches the sheet's own Cohort Modelling!B8:B9 structure, which is also a flat constant, not time-varying). Re-run this pipeline periodically to refresh this estimate as retention/acquisition data changes.
 
@@ -20,7 +20,7 @@ Held FIXED going forward for this forecast (matches the sheet's own Cohort Model
 | 2025-08 | £44.52 | £40.09 | 10.0% |
 | 2025-09 | £43.26 | £39.76 | 8.1% |
 | 2025-10 | £42.27 | £39.31 | 7.0% |
-| 2025-11 | £37.61 | £36.51 | 2.9% |
+| 2025-11 | £37.61 | £36.50 | 2.9% |
 | 2025-12 | £33.95 | £32.10 | 5.4% |
 | 2026-01 | £33.22 | £31.49 | 5.2% |
 | 2026-02 | £33.61 | £33.30 | 0.9% |
@@ -41,34 +41,34 @@ Held FIXED going forward for this forecast (matches the sheet's own Cohort Model
 | Month | Current sheet value | Recommended new value |
 |---|---|---|
 | 2026-08 | £41.84 | £42.21 |
-| 2026-09 | £43.76 | £44.27 |
-| 2026-10 | £47.65 | £48.44 |
-| 2026-11 | £49.50 | £52.32 |
-| 2026-12 | £51.50 | £42.89 |
-| 2027-01 | £54.10 | £45.88 |
-| 2027-02 | £54.20 | £48.48 |
-| 2027-03 | £56.20 | £41.65 |
+| 2026-09 | £43.76 | £44.24 |
+| 2026-10 | £47.65 | £48.41 |
+| 2026-11 | £49.50 | £53.02 |
+| 2026-12 | £51.50 | £42.88 |
+| 2027-01 | £54.10 | £45.86 |
+| 2027-02 | £54.20 | £49.02 |
+| 2027-03 | £56.20 | £41.64 |
 | 2027-04 | £57.10 | £43.42 |
-| 2027-05 | £58.10 | £44.97 |
+| 2027-05 | £58.10 | £45.33 |
 | 2027-06 | £58.40 | £40.63 |
-| 2027-07 | £59.70 | £41.90 |
-| 2027-08 | £60.10 | £42.88 |
+| 2027-07 | £59.70 | £41.89 |
+| 2027-08 | £60.10 | £43.13 |
 | 2027-09 | £60.20 | £40.08 |
-| 2027-10 | £61.20 | £40.91 |
-| 2027-11 | £61.20 | £41.53 |
+| 2027-10 | £61.20 | £40.90 |
+| 2027-11 | £61.20 | £41.69 |
 | 2027-12 | £61.80 | £39.75 |
-| 2028-01 | £62.20 | £40.29 |
-| 2028-02 | £61.80 | £40.69 |
+| 2028-01 | £62.20 | £40.28 |
+| 2028-02 | £61.80 | £40.79 |
 | 2028-03 | £62.60 | £39.55 |
 | 2028-04 | £61.70 | £39.90 |
-| 2028-05 | £61.90 | £40.15 |
+| 2028-05 | £61.90 | £40.21 |
 | 2028-06 | £61.40 | £39.45 |
 | 2028-07 | £62.30 | £39.67 |
-| 2028-08 | £62.30 | £39.83 |
+| 2028-08 | £62.30 | £39.87 |
 | 2028-09 | £61.90 | £39.40 |
 | 2028-10 | £62.50 | £39.54 |
-| 2028-11 | £62.20 | £39.64 |
+| 2028-11 | £62.20 | £39.67 |
 | 2028-12 | £62.50 | £39.38 |
 | 2029-01 | £62.70 | £39.48 |
-| 2029-02 | £61.70 | £39.54 |
+| 2029-02 | £61.70 | £39.56 |
 | 2029-03 | £60.70 | £39.38 |

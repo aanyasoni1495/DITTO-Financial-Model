@@ -104,8 +104,8 @@
     },
     "2026-08": {
       "price": 37.95,
-      "share_at_dominant_price": 0.373,
-      "n_orders": 848,
+      "share_at_dominant_price": 0.343,
+      "n_orders": 920,
       "n_distinct_prices": 5
     }
   },
@@ -214,8 +214,8 @@
     },
     "2026-08": {
       "price": 112.35,
-      "share_at_dominant_price": 0.378,
-      "n_orders": 3015,
+      "share_at_dominant_price": 0.41,
+      "n_orders": 3257,
       "n_distinct_prices": 4
     }
   }
