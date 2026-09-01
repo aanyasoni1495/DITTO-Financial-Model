@@ -50,16 +50,9 @@
 
 <div class="topbar">
   <span class="logo">DITTO</span>
-  <span class="navlinks">
-    <a href="index.html">AOV Simulator</a>
-    <a href="aop_forecast.html" class="active">AOP Forecast</a>
-  </span>
 </div>
 <div class="titleband">
-  <h1>AOP Forecast -- Cash Flow!row17</h1>
-  <p class="subtitle">Real months and every existing subscriber's own renewal price are fixed -- they already happened.
-  How many NEW customers sign up each month is fixed too (the sheet's own acquisition forecast). Everything else about
-  those future new signups -- price, first-purchase discount, and the Monthly/3-Month/OTP split -- is yours to set below.</p>
+  <h1>AOP forcast</h1>
 </div>
 
 <div class="body-content">
@@ -87,13 +80,12 @@
   </div>
 </div>
 
-<div class="section-label">New-signup recurring prices (existing subscribers' renewals are never changed)</div>
+<div class="section-label">New-signup recurring prices</div>
 <div class="input-grid">
   <div class="input-group"><label>Monthly (£)</label><input type="number" id="price-monthly" min="0" step="1"></div>
   <div class="input-group"><label>3-Month (£)</label><input type="number" id="price-3month" min="0" step="1"></div>
   <div class="input-group"><label>OTP (£)</label><input type="number" id="price-otp" min="0" step="1"></div>
 </div>
-<p class="note" id="baseline-note" style="margin: -8px 0 20px;"></p>
 
 <div class="section-label">First-purchase discount</div>
 <div class="input-grid">
@@ -101,7 +93,7 @@
   <div class="input-group"><label>3-Month (%)</label><input type="number" id="disc-3month" value="0" min="0" max="100" step="1"></div>
 </div>
 
-<div class="section-label">New-signup mix (must total 100% -- total new-signup volume itself stays fixed from the sheet's own acquisition forecast; only the plan split is yours to choose)</div>
+<div class="section-label">New-signup mix</div>
 <div class="input-grid">
   <div class="input-group"><label>Monthly (%)</label><input type="number" id="mix-monthly" value="30" min="0" max="100" step="1"></div>
   <div class="input-group"><label>3-Month (%)</label><input type="number" id="mix-3month" value="65" min="0" max="100" step="1"></div>
@@ -115,9 +107,6 @@
   <span><span class="legend-swatch" style="background:#ff673d;"></span>Your scenario</span>
 </div>
 <div id="chartWrap"><canvas id="aopChart"></canvas></div>
-<p class="note">Dashed context: everything before <span id="last-real-label"></span> is real, already in the sheet, and never changes here.
-The 3-month zig-zag pattern is real, not a bug -- 3-Month subscribers only renew every 3 months, so months where more of them land show a higher blended AOP.
-A hypothetical new signup DOES renew forward in this tool too, at its own hypothetical price (not discounted, just like a real renewal) -- so a price/mix change compounds through every later forecast month, not just the month it happens in.</p>
 
 <div class="section-label" style="margin-top:28px;">Row17 values at your scenario</div>
 <div class="table-wrap">
@@ -133,7 +122,6 @@ real months copy through completely untouched, forecast months use your scenario
 Year 1/2/3/4 AOP summary cells the sheet has (wherever they sit in the row) are recalculated live
 from your scenario too, not just the plain months. Paste directly into the first real month's cell
 in row17 and it should fill across correctly.</p>
-<p class="meta" id="generated-meta"></p>
 </div>
 
 </div>
@@ -416,18 +404,8 @@ Promise.all([
     els.m3.value = data.baseline_mix.threemonth_pct;
     els.mO.value = data.baseline_mix.otp_pct;
 
-    document.getElementById('baseline-note').textContent =
-      'Defaults reflect ' + data.last_real_month + '\'s own real Shopify orders (recurring price, first-purchase ' +
-      'discount, and mix are all computed from real signups that month). OTP: ' + data.baseline_mix.otp_source +
-      '. Edit any of these to whatever you actually expect.';
-
     document.getElementById('confidence-out').textContent =
       data.confidence + (data.avg_error_pct != null ? ' (avg error ' + data.avg_error_pct + '%)' : '');
-    document.getElementById('last-real-label').textContent = data.last_real_month;
-    document.getElementById('generated-meta').textContent = 'Forecast generated ' + data.generated_date +
-      (data.full_range_from_live_sheet
-        ? ' from the live sheet and retention curve. Refreshes automatically each month.'
-        : ' -- model.xlsx was not available at generation time, so this covers a shorter fallback range, not the sheet\'s full row17. Re-run the automation to refresh with the full live range.');
 
     const forecastMonths = data.months.filter(m => !m.is_real);
     forecastMonths.forEach(m => {
