@@ -111,7 +111,7 @@
 <div class="section-label" style="margin-top:28px;">Row17 values at your scenario</div>
 <div class="table-wrap">
   <table class="updates">
-    <thead><tr><th>Month</th><th>Your scenario AOP</th></tr></thead>
+    <thead><tr><th>Month / Year</th><th>Your scenario AOP</th></tr></thead>
     <tbody id="updates-body"></tbody>
   </table>
 </div>
@@ -219,6 +219,48 @@ function computeForecastSeries(pM, p3, pO, dM, d3, mix) {
   });
 }
 
+// Resolves the FULL row17 layout (real months, forecast months, and any
+// Year N summary cells, in the sheet's own column order) into one array
+// of {type, label, value} -- used by BOTH the on-page table and the copy
+// button, so what you see always exactly matches what gets copied.
+function resolveRow17Values(pM, p3, pO, dM, d3, mix) {
+  const forecastSeries = computeForecastSeries(pM, p3, pO, dM, d3, mix);
+  const forecastByMonth = new Map(forecastSeries.map(r => [r.month, r.aop]));
+  const monthByLabel = new Map(DATA.months.map(m => [m.month, m]));
+
+  function valueForMonthLabel(label) {
+    const m = monthByLabel.get(label);
+    if (!m) return null;
+    return m.is_real ? m.actual_aop : forecastByMonth.get(label);
+  }
+
+  const columns = DATA.row17_columns && DATA.row17_columns.length
+    ? DATA.row17_columns
+    : DATA.months.map(m => ({ type: 'month', month: m.month })); // fallback: no live-sheet layout available
+
+  return columns.map(col => {
+    if (col.type === 'month') {
+      const m = monthByLabel.get(col.month);
+      return { type: 'month', label: col.month, value: valueForMonthLabel(col.month), is_real: m ? m.is_real : true };
+    }
+    // Summary column (e.g. "Year 1 AOP") -- recomputed live as the
+    // average of whatever real/scenario values apply to the months it
+    // covers, so it moves with your scenario just like the sheet's own
+    // formula would. Falls back to the sheet's original value only if
+    // its covered months couldn't be resolved. Counted as "predicted" for
+    // highlighting if it includes ANY forecast month -- a year straddling
+    // the real/forecast boundary is still partly new/scenario-driven.
+    if (col.covers_months && col.covers_months.length) {
+      const vals = col.covers_months.map(valueForMonthLabel).filter(v => v != null);
+      const allReal = col.covers_months.every(m => (monthByLabel.get(m) || {}).is_real);
+      if (vals.length) {
+        return { type: 'summary', label: col.label || 'Summary', value: vals.reduce((a, b) => a + b, 0) / vals.length, is_real: allReal };
+      }
+    }
+    return { type: 'summary', label: col.label || 'Summary', value: col.sheet_value, is_real: true };
+  });
+}
+
 function checkMix() {
   const total = Number(els.mM.value || 0) + Number(els.m3.value || 0) + Number(els.mO.value || 0);
   const diff = 100 - total;
@@ -319,16 +361,19 @@ function render() {
     });
   }
 
-  renderUpdatesTable(forecastSeries);
+  renderUpdatesTable(mix.valid ? resolveRow17Values(pM, p3, pO, dM, d3, mix) : null);
 }
 
-function renderUpdatesTable(forecastSeries) {
+function renderUpdatesTable(resolved) {
   const body = document.getElementById('updates-body');
   body.innerHTML = '';
-  (forecastSeries || []).forEach(r => {
+  (resolved || []).forEach(r => {
     const tr = document.createElement('tr');
-    const display = r.aop != null ? '£' + r.aop.toFixed(2) : 'n/a';
-    tr.innerHTML = `<td>${r.month}</td><td class="num">${display}</td>`;
+    const display = r.value != null ? '£' + r.value.toFixed(2) : 'n/a';
+    const labelHtml = r.type === 'summary' ? `<strong>${r.label}</strong>` : r.label;
+    if (r.type === 'summary') tr.style.background = '#f0eee7';
+    const valueColor = !r.is_real ? ' style="color:#1a7a3f;font-weight:600;"' : '';
+    tr.innerHTML = `<td>${labelHtml}</td><td class="num"${valueColor}>${display}</td>`;
     body.appendChild(tr);
   });
 }
@@ -342,42 +387,8 @@ function copyRow17() {
   const dM = Number(els.dM.value) || 0;
   const d3 = Number(els.d3.value) || 0;
 
-  const forecastSeries = computeForecastSeries(pM, p3, pO, dM, d3, mix);
-  const forecastByMonth = new Map(forecastSeries.map(r => [r.month, r.aop]));
-  const monthByLabel = new Map(DATA.months.map(m => [m.month, m]));
-
-  function valueForMonthLabel(label) {
-    const m = monthByLabel.get(label);
-    if (!m) return null;
-    return m.is_real ? m.actual_aop : forecastByMonth.get(label);
-  }
-
-  const columns = DATA.row17_columns && DATA.row17_columns.length
-    ? DATA.row17_columns
-    : DATA.months.map(m => ({ type: 'month', month: m.month })); // fallback: no live-sheet layout available
-
-  const values = columns.map(col => {
-    if (col.type === 'month') {
-      const v = valueForMonthLabel(col.month);
-      return v != null ? v.toFixed(2) : '';
-    }
-    // Summary column (e.g. "Year 1 AOP"). If its formula resolved to a
-    // set of months, recompute it live as the average of those months'
-    // current real/scenario values -- so it moves with your scenario
-    // just like the sheet's own formula would. If it couldn't be
-    // resolved, pass through the sheet's original value untouched --
-    // still correctly positioned, just not recalculated.
-    if (col.covers_months && col.covers_months.length) {
-      const vals = col.covers_months.map(valueForMonthLabel).filter(v => v != null);
-      if (vals.length) {
-        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-        return avg.toFixed(2);
-      }
-    }
-    return col.sheet_value != null ? col.sheet_value.toFixed(2) : '';
-  });
-
-  const text = values.join('\t');
+  const resolved = resolveRow17Values(pM, p3, pO, dM, d3, mix);
+  const text = resolved.map(r => r.value != null ? r.value.toFixed(2) : '').join('\t');
   navigator.clipboard.writeText(text).then(() => {
     const c = document.getElementById('copy-confirm');
     c.classList.add('show');
