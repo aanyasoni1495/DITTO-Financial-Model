@@ -65,63 +65,53 @@ def month_label(idx):
     return f"{y}-{m:02d}"
 
 
-import re
-from openpyxl.utils import column_index_from_string
-
-
-def parse_referenced_row17_columns(formula, row_num=17):
+def compute_last_real_month(today=None):
     """
-    Extracts every column a formula references, restricted to cells IN
-    row `row_num` -- handles both range refs (E17:P17) and standalone
-    refs (E17), and ignores anything referencing a different row (a
-    Year-summary formula should only reference other row17 cells, but
-    this guards against confusion if it somehow references elsewhere).
-    Returns a sorted list of 1-indexed column numbers.
+    The month boundary between "real/actual" and "forecast" is now decided
+    purely by the calendar, NOT by whether a cell is a formula or a plain
+    number -- the sheet's row17 cells are all hardcoded numbers now (some
+    were formulas before; that distinction is gone and can't be relied on
+    any more). By the time this pipeline runs (always at month-end, after
+    that month's cell has been updated with the real number), the most
+    recently COMPLETED calendar month is real; the current month and
+    everything after it is still forecast.
     """
-    cols = set()
-    for m in re.finditer(r"\$?([A-Z]{1,3})\$?(\d+)\s*:\s*\$?([A-Z]{1,3})\$?(\d+)", formula):
-        c1, r1, c2, r2 = m.groups()
-        if int(r1) == row_num and int(r2) == row_num:
-            i1, i2 = column_index_from_string(c1), column_index_from_string(c2)
-            cols.update(range(min(i1, i2), max(i1, i2) + 1))
-    for m in re.finditer(r"\$?([A-Z]{1,3})\$?(\d+)", formula):
-        c, r = m.groups()
-        if int(r) == row_num:
-            cols.add(column_index_from_string(c))
-    return sorted(cols)
+    if today is None:
+        today = datetime.now(timezone.utc).date()
+    y, m = today.year, today.month
+    if m == 1:
+        y, m = y - 1, 12
+    else:
+        m -= 1
+    return f"{y}-{m:02d}"
 
 
-def load_full_row17(xlsx_path="model.xlsx"):
+def load_full_row17(xlsx_path="model.xlsx", last_real_month=None):
     """
     Reads EVERY column of Cash Flow!row17 directly from the live sheet,
     in their ACTUAL left-to-right order -- not just the monthly columns.
 
+    Real vs forecast is decided by CALENDAR DATE (see
+    compute_last_real_month), not by formula-vs-literal -- the sheet's
+    row17 cells are all plain hardcoded numbers now, so there's no
+    formula left to check. A month at or before `last_real_month` is
+    real (its typed-in number is trusted as the actual figure); anything
+    after is forecast (whatever placeholder currently sits there gets
+    replaced by this tool's own calculation).
+
     Some sheets (confirmed: this one does) have "Year 1 AOP" / "Year 2
     AOP" etc. summary cells interspersed AMONG the monthly columns, not
-    just appended at the end. An earlier version of this function only
-    kept columns with a real date header and silently dropped everything
-    else -- which meant a straight tab-separated copy-paste ended up
-    missing those summary columns entirely, shifting every column after
-    them out of alignment with the real sheet. Fixed by keeping every
-    column, in order, and classifying each one:
+    just appended at the end -- and those can ALSO be a mix of formulas
+    and plain hardcoded numbers depending on the year, with no reliable
+    way to tell which from the cell alone. So rather than parsing a
+    formula's cell-range reference (which only works for cells that are
+    still formulas), this resolves what each summary column covers PURELY
+    BY POSITION: whatever run of consecutive month-columns came right
+    before it. That works identically whether the summary cell itself is
+    a formula, a hardcoded number, or anything else -- the position in
+    the row is the one thing that never changes.
 
-      - "month": header is a real date. Same as before -- a FORMULA cell
-        means the month is real (kept exactly as-is); a plain hardcoded
-        number means it's a forecast placeholder this tool can help
-        replace.
-      - "summary": header is NOT a date (e.g. "Year 1 AOP", or blank).
-        If the cell holds a formula, the formula's own cell-range
-        reference is parsed directly (e.g. "=AVERAGE(E17:P17)" ->
-        columns E through P) and resolved to the actual month labels
-        those columns represent, so the front-end can recompute a live
-        "Year N average" from whatever real/scenario values apply to
-        exactly those months -- not a guess about which months belong to
-        which year. If the formula can't be parsed (or it's a plain
-        number), the column still keeps its exact position (so
-        everything after it stays aligned), but its value is passed
-        through as a static, non-recalculating placeholder.
-
-    Returns [] if model.xlsx isn't present, same as before.
+    Returns [] if model.xlsx isn't present.
     """
     try:
         import openpyxl
@@ -129,47 +119,45 @@ def load_full_row17(xlsx_path="model.xlsx"):
         print("openpyxl not installed -- cannot read model.xlsx")
         return []
 
+    if last_real_month is None:
+        last_real_month = compute_last_real_month()
+    last_real_idx = month_index(last_real_month)
+
     try:
         wb_values = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=True)
-        wb_formulas = openpyxl.load_workbook(xlsx_path, data_only=False, read_only=True)
     except FileNotFoundError:
         print(f"'{xlsx_path}' not found -- cannot read the live row17 range. "
               f"Falling back to a smaller hardcoded range (see run()).")
         return []
 
     ws_values = wb_values["Cash Flow"]
-    ws_formulas = wb_formulas["Cash Flow"]
-
     date_row = next(ws_values.iter_rows(min_row=1, max_row=1, values_only=True))
     value_row = next(ws_values.iter_rows(min_row=17, max_row=17, values_only=True))
-    formula_row = next(ws_formulas.iter_rows(min_row=17, max_row=17, values_only=True))
 
-    col_to_month = {}
     columns = []
-    for col_idx, (d, val, raw) in enumerate(zip(date_row, value_row, formula_row), start=1):
-        is_formula = isinstance(raw, str) and raw.startswith("=")
+    for col_idx, (d, val) in enumerate(zip(date_row, value_row), start=1):
         sheet_value = round(float(val), 4) if isinstance(val, (int, float)) else None
         if d is not None and hasattr(d, "strftime"):
             m = d.strftime("%Y-%m")
-            col_to_month[col_idx] = m
             columns.append({"type": "month", "col_idx": col_idx, "month": m,
-                             "is_real": is_formula, "sheet_value": sheet_value})
+                             "is_real": month_index(m) <= last_real_idx,
+                             "sheet_value": sheet_value})
         else:
             columns.append({"type": "summary", "col_idx": col_idx,
                              "label": d if isinstance(d, str) else None,
-                             "sheet_value": sheet_value,
-                             "raw_formula": raw if isinstance(raw, str) else None})
+                             "sheet_value": sheet_value})
 
+    # Resolve each summary column's covered months by position: whatever
+    # consecutive run of month-columns immediately preceded it (reset
+    # after each summary column, so a run only ever "belongs" to the one
+    # summary column right after it).
+    pending_months = []
     for col in columns:
-        if col["type"] != "summary":
-            continue
-        covers = None
-        if col["raw_formula"]:
-            ref_cols = parse_referenced_row17_columns(col["raw_formula"])
-            resolved = [col_to_month[c] for c in ref_cols if c in col_to_month]
-            covers = resolved if resolved else None
-        col["covers_months"] = covers
-        del col["raw_formula"]
+        if col["type"] == "month":
+            pending_months.append(col["month"])
+        else:
+            col["covers_months"] = pending_months if pending_months else None
+            pending_months = []
 
     # Drop any leading columns before the first real month column -- these
     # are row/column labels (e.g. column A holding "Average Order Price"
@@ -385,20 +373,21 @@ def run():
     else:
         confidence, avg_pct = "LOW", None
 
-    row17 = load_full_row17("model.xlsx")
+    last_real_month = compute_last_real_month()
+    row17 = load_full_row17("model.xlsx", last_real_month=last_real_month)
     row17_months = [c for c in row17 if c["type"] == "month"]
 
     months = []
     row17_columns = []  # full ordered layout, including summary columns, for the copy-to-sheet feature
     if row17_months:
-        # Live sheet available -- use its ACTUAL full range and its own
-        # formula-vs-literal distinction. This is the accurate path,
-        # used every time the automation runs for real.
-        last_real_month = max((c["month"] for c in row17_months if c["is_real"]), key=month_index)
+        # Live sheet available -- use its ACTUAL full range. Real vs
+        # forecast is decided by today's date (see compute_last_real_month),
+        # not by formula-vs-literal -- every row17 cell is a plain
+        # hardcoded number now, so there's no formula left to check.
         n_summary = sum(1 for c in row17 if c["type"] == "summary")
         print(f"Read live row17 from model.xlsx: {row17_months[0]['month']} to {row17_months[-1]['month']}, "
               f"{len(row17_months)} month columns + {n_summary} summary columns (e.g. Year N AOP), "
-              f"last real month = {last_real_month}")
+              f"last real month = {last_real_month} (today's date -> most recently completed calendar month)")
         for col in row17:
             if col["type"] == "month":
                 if col["is_real"]:
@@ -410,12 +399,15 @@ def run():
                                    "current_sheet_value": col["sheet_value"], **pieces})
                 row17_columns.append({"type": "month", "month": col["month"]})
             else:
-                # Summary column (e.g. "Year 1 AOP"). If its formula could
-                # be resolved to a set of month columns, the front-end
-                # recomputes it live as the average of those months' real/
-                # scenario values. If not, it's passed through as a static
-                # placeholder -- still correctly positioned, just not
-                # recalculated.
+                # Summary column (e.g. "Year 1 AOP"), resolved by POSITION
+                # to whichever months it covers (see load_full_row17). The
+                # front-end always recomputes a fresh plain number from
+                # those months' current real/scenario values -- never
+                # passes through a formula, and never leaves it as a
+                # static old number either, satisfying "give hardcoded
+                # for all of them" for every summary cell uniformly,
+                # regardless of whether the sheet's own cell was a
+                # formula or already a hardcoded placeholder.
                 row17_columns.append({"type": "summary", "label": col["label"],
                                        "covers_months": col["covers_months"],
                                        "sheet_value": col["sheet_value"]})
