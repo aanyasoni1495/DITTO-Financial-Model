@@ -28,13 +28,24 @@ PLAN_TAGS = {
 
 
 def parse_plan(tags):
+    """
+    Monthly/3-Month/6-Month/Annual come from Appstle's subscription tags.
+    Any order with NO subscription tag at all is a one-time purchase
+    (OTP) -- confirmed directly: DITTO's own business rule is that every
+    order not tagged into a subscription plan IS an OTP order, not a
+    garbage/unclassifiable row. Earlier versions of this function
+    returned None here and the caller silently dropped these rows
+    entirely (see the old "skipped_no_plan" counter) -- that was wrong;
+    it was quietly discarding every real OTP purchase instead of
+    counting them. Fixed so OTP orders are now kept and classified.
+    """
     if not tags:
-        return None
+        return "OTP"
     tag_list = [t.strip() for t in tags.split(",")]
     for raw_tag, canonical in PLAN_TAGS.items():
         if raw_tag in tag_list:
             return canonical
-    return None
+    return "OTP"
 
 
 def parse_order_type(tags):
