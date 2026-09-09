@@ -1,5 +1,5 @@
 {
-  "generated_date": "2026-09-02",
+  "generated_date": "2026-09-09",
   "last_real_month": "2026-08",
   "confidence": "HIGH",
   "avg_error_pct": 4.8,
@@ -115,247 +115,247 @@
       "is_real": false,
       "current_sheet_value": 44.74,
       "renewal_orders": 6805.57,
-      "renewal_revenue": 329481.45,
+      "renewal_revenue": 328566.35,
       "total_new_signups": 5055.58
     },
     {
       "month": "2026-10",
       "is_real": false,
       "current_sheet_value": 48.65,
-      "renewal_orders": 6986.52,
-      "renewal_revenue": 386513.81,
+      "renewal_orders": 7083.15,
+      "renewal_revenue": 391135.55,
       "total_new_signups": 5207.25
     },
     {
       "month": "2026-11",
       "is_real": false,
       "current_sheet_value": 52.0,
-      "renewal_orders": 7142.04,
-      "renewal_revenue": 484314.33,
+      "renewal_orders": 7215.84,
+      "renewal_revenue": 487811.4,
       "total_new_signups": 5363.47
     },
     {
       "month": "2026-12",
       "is_real": false,
       "current_sheet_value": 55.02,
-      "renewal_orders": 4618.83,
-      "renewal_revenue": 229638.9,
+      "renewal_orders": 5214.26,
+      "renewal_revenue": 304597.93,
       "total_new_signups": 5524.37
     },
     {
       "month": "2027-01",
       "is_real": false,
       "current_sheet_value": 56.81,
-      "renewal_orders": 4711.8,
-      "renewal_revenue": 254080.53,
+      "renewal_orders": 4761.34,
+      "renewal_revenue": 256408.22,
       "total_new_signups": 5690.1
     },
     {
       "month": "2027-02",
       "is_real": false,
       "current_sheet_value": 63.32,
-      "renewal_orders": 4887.12,
-      "renewal_revenue": 318514.51,
+      "renewal_orders": 4929.49,
+      "renewal_revenue": 320496.53,
       "total_new_signups": 5860.81
     },
     {
       "month": "2027-03",
       "is_real": false,
       "current_sheet_value": 60.18,
-      "renewal_orders": 3360.19,
-      "renewal_revenue": 162081.33,
+      "renewal_orders": 3732.23,
+      "renewal_revenue": 208914.56,
       "total_new_signups": 6036.63
     },
     {
       "month": "2027-04",
       "is_real": false,
       "current_sheet_value": 60.24,
-      "renewal_orders": 3456.34,
-      "renewal_revenue": 180029.98,
+      "renewal_orders": 3489.04,
+      "renewal_revenue": 181554.31,
       "total_new_signups": 6938.95
     },
     {
       "month": "2027-05",
       "is_real": false,
       "current_sheet_value": 63.58,
-      "renewal_orders": 3588.49,
-      "renewal_revenue": 223089.54,
+      "renewal_orders": 3617.78,
+      "renewal_revenue": 224450.89,
       "total_new_signups": 7216.51
     },
     {
       "month": "2027-06",
       "is_real": false,
       "current_sheet_value": 61.75,
-      "renewal_orders": 2599.88,
-      "renewal_revenue": 121402.3,
+      "renewal_orders": 2846.31,
+      "renewal_revenue": 152237.9,
       "total_new_signups": 7505.17
     },
     {
       "month": "2027-07",
       "is_real": false,
       "current_sheet_value": 62.9,
-      "renewal_orders": 2675.31,
-      "renewal_revenue": 134331.44,
+      "renewal_orders": 2699.49,
+      "renewal_revenue": 135453.24,
       "total_new_signups": 7805.37
     },
     {
       "month": "2027-08",
       "is_real": false,
       "current_sheet_value": 64.78,
-      "renewal_orders": 2768.88,
-      "renewal_revenue": 163924.48,
+      "renewal_orders": 2791.09,
+      "renewal_revenue": 164952.64,
       "total_new_signups": 8117.59
     },
     {
       "month": "2027-09",
       "is_real": false,
       "current_sheet_value": 63.79,
-      "renewal_orders": 2097.48,
-      "renewal_revenue": 94918.24,
+      "renewal_orders": 2268.15,
+      "renewal_revenue": 116079.09,
       "total_new_signups": 8442.29
     },
     {
       "month": "2027-10",
       "is_real": false,
       "current_sheet_value": 64.42,
-      "renewal_orders": 2152.97,
-      "renewal_revenue": 104302.51,
+      "renewal_orders": 2172.03,
+      "renewal_revenue": 105184.46,
       "total_new_signups": 8779.98
     },
     {
       "month": "2027-11",
       "is_real": false,
       "current_sheet_value": 65.52,
-      "renewal_orders": 2218.42,
-      "renewal_revenue": 125199.6,
+      "renewal_orders": 2236.21,
+      "renewal_revenue": 126021.16,
       "total_new_signups": 9131.18
     },
     {
       "month": "2027-12",
       "is_real": false,
       "current_sheet_value": 64.96,
-      "renewal_orders": 1745.06,
-      "renewal_revenue": 76714.31,
+      "renewal_orders": 1867.63,
+      "renewal_revenue": 91739.21,
       "total_new_signups": 9496.43
     },
     {
       "month": "2028-01",
       "is_real": false,
       "current_sheet_value": 65.33,
-      "renewal_orders": 1785.01,
-      "renewal_revenue": 83618.2,
+      "renewal_orders": 1800.68,
+      "renewal_revenue": 84341.76,
       "total_new_signups": 9876.29
     },
     {
       "month": "2028-02",
       "is_real": false,
       "current_sheet_value": 65.99,
-      "renewal_orders": 1830.78,
-      "renewal_revenue": 98735.02,
+      "renewal_orders": 1845.57,
+      "renewal_revenue": 99416.55,
       "total_new_signups": 10271.34
     },
     {
       "month": "2028-03",
       "is_real": false,
       "current_sheet_value": 65.67,
-      "renewal_orders": 1486.65,
-      "renewal_revenue": 63668.16,
+      "renewal_orders": 1577.41,
+      "renewal_revenue": 74646.92,
       "total_new_signups": 10682.19
     },
     {
       "month": "2028-04",
       "is_real": false,
       "current_sheet_value": 65.73,
-      "renewal_orders": 1515.15,
-      "renewal_revenue": 68820.73,
+      "renewal_orders": 1528.42,
+      "renewal_revenue": 69432.38,
       "total_new_signups": 11297.24
     },
     {
       "month": "2028-05",
       "is_real": false,
       "current_sheet_value": 65.94,
-      "renewal_orders": 1547.22,
-      "renewal_revenue": 79989.56,
+      "renewal_orders": 1559.84,
+      "renewal_revenue": 80570.54,
       "total_new_signups": 11975.08
     },
     {
       "month": "2028-06",
       "is_real": false,
       "current_sheet_value": 65.54,
-      "renewal_orders": 1290.49,
-      "renewal_revenue": 53996.65,
+      "renewal_orders": 1359.48,
+      "renewal_revenue": 62218.72,
       "total_new_signups": 12693.58
     },
     {
       "month": "2028-07",
       "is_real": false,
       "current_sheet_value": 65.56,
-      "renewal_orders": 1310.68,
-      "renewal_revenue": 57895.01,
+      "renewal_orders": 1322.16,
+      "renewal_revenue": 58423.13,
       "total_new_signups": 13455.2
     },
     {
       "month": "2028-08",
       "is_real": false,
       "current_sheet_value": 65.71,
-      "renewal_orders": 1333.14,
-      "renewal_revenue": 66300.63,
+      "renewal_orders": 1344.12,
+      "renewal_revenue": 66805.22,
       "total_new_signups": 14262.51
     },
     {
       "month": "2028-09",
       "is_real": false,
       "current_sheet_value": 65.49,
-      "renewal_orders": 1137.33,
-      "renewal_revenue": 46621.26,
+      "renewal_orders": 1191.0,
+      "renewal_revenue": 52911.96,
       "total_new_signups": 15118.26
     },
     {
       "month": "2028-10",
       "is_real": false,
       "current_sheet_value": 65.52,
-      "renewal_orders": 1151.5,
-      "renewal_revenue": 49607.65,
+      "renewal_orders": 1161.6,
+      "renewal_revenue": 50071.71,
       "total_new_signups": 16025.35
     },
     {
       "month": "2028-11",
       "is_real": false,
       "current_sheet_value": 65.63,
-      "renewal_orders": 1167.17,
-      "renewal_revenue": 56036.76,
+      "renewal_orders": 1176.87,
+      "renewal_revenue": 56482.28,
       "total_new_signups": 16986.88
     },
     {
       "month": "2028-12",
       "is_real": false,
       "current_sheet_value": 65.51,
-      "renewal_orders": 1014.93,
-      "renewal_revenue": 40860.14,
+      "renewal_orders": 1057.52,
+      "renewal_revenue": 45764.59,
       "total_new_signups": 18006.09
     },
     {
       "month": "2029-01",
       "is_real": false,
       "current_sheet_value": 65.54,
-      "renewal_orders": 1024.73,
-      "renewal_revenue": 43173.64,
+      "renewal_orders": 1033.73,
+      "renewal_revenue": 43586.87,
       "total_new_signups": 19086.45
     },
     {
       "month": "2029-02",
       "is_real": false,
       "current_sheet_value": 65.61,
-      "renewal_orders": 1035.55,
-      "renewal_revenue": 48161.41,
+      "renewal_orders": 1044.23,
+      "renewal_revenue": 48559.63,
       "total_new_signups": 20231.64
     },
     {
       "month": "2029-03",
       "is_real": false,
       "current_sheet_value": 65.55,
-      "renewal_orders": 915.17,
-      "renewal_revenue": 36265.82,
+      "renewal_orders": 949.58,
+      "renewal_revenue": 40153.94,
       "total_new_signups": 21445.54
     }
   ],

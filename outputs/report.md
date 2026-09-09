@@ -69,9 +69,9 @@ diff_closing_balance('model_before.xlsx', 'model_after.xlsx')
 ## `Cohort Modelling!K415 (I415, J415 flattened to =H415)`
 
 - **Old value:** 0.1952 (via noisy compounded formula)
-- **New value:** 0.241149
+- **New value:** 0.241148
 - **Finding:** Month-9 retention was computed by compounding two noisy calendar-month ratios (month 7->8->9), even though months 7-8 aren't real renewal points for a 3-month billing cycle -- see prior conversation for the exact -72%/+189% swing that was being multiplied through. sBG (fit on cohort-level quarterly checkpoints, alpha=4.13, beta=5.89) predicts month 9 directly without that contamination.
-- **Why changed (validation):** Structural fix (formula -> static value), not a tier-fit -- see raw-curve CV above (4 folds, 42 held-out points, MAE 0.0486 vs sheet 0.0774).
+- **Why changed (validation):** Structural fix (formula -> static value), not a tier-fit -- see raw-curve CV above (4 folds, 42 held-out points, MAE 0.0487 vs sheet 0.0774).
 - **Business impact:** 1st Yr LTV: 126.83 -> 130.28 (+2.7%, IMPROVES); CAC:LTV: 3.252x -> 3.340x (IMPROVES)
 - **Confidence:** MEDIUM (isolated structural fix, less exposed to small-sample tier-fit noise)
 

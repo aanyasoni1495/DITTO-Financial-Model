@@ -110,9 +110,9 @@
     },
     "2026-09": {
       "price": 54.9,
-      "share_at_dominant_price": 0.513,
-      "n_orders": 39,
-      "n_distinct_prices": 2
+      "share_at_dominant_price": 0.678,
+      "n_orders": 177,
+      "n_distinct_prices": 3
     }
   },
   "threemonth": {
@@ -225,10 +225,10 @@
       "n_distinct_prices": 6
     },
     "2026-09": {
-      "price": 112.35,
-      "share_at_dominant_price": 0.504,
-      "n_orders": 246,
-      "n_distinct_prices": 2
+      "price": 129.9,
+      "share_at_dominant_price": 0.66,
+      "n_orders": 1158,
+      "n_distinct_prices": 3
     }
   }
 }
