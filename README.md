@@ -344,38 +344,3 @@ blended AOP. The same pattern shows up in the real historical data.
   Principals with access) — the `principalSet://` string must exactly match
   `github-actions-pool/attribute.repository/<org>/<repo>`, with no
   duplication or typos.
-
----
-
-## 8. Shopify data — scope and history
-
-The `read_orders` API scope this pipeline uses only covers the **last 60
-days** of order history. Getting full history back to launch would require
-the `read_all_orders` scope, which needs Shopify's manual "protected customer
-data" review/approval.
-
-Since `data/customer_cohorts.csv` already contains the complete historical
-dataset (built once from a manual CSV export), the ongoing automation only
-needs to *append* new orders each run — 60 days comfortably covers that as
-long as this workflow runs at least every ~2 months. If you ever need to
-rebuild full history from scratch (e.g. a fresh Shopify store), you'd need to
-either request `read_all_orders` or fall back to a manual CSV export for that
-one-time rebuild (`extract_shopify_orders.py` supports both paths).
-
----
-
-## 9. Required GitHub secrets
-
-Settings → Secrets and variables → Actions:
-
-| Secret | Purpose |
-|---|---|
-| `GDRIVE_PROJECT_NUMBER` | Google Cloud project number |
-| `GDRIVE_WORKLOAD_POOL` | Workload Identity Pool ID (`github-actions-pool`) |
-| `GDRIVE_SERVICE_ACCOUNT_EMAIL` | The service account being impersonated |
-| `GDRIVE_FOLDER_ID` | Drive folder ID containing `model.xlsx` |
-| `SHOPIFY_ACCESS_TOKEN` | Shopify Admin API token, `read_orders` scope |
-| `SHOPIFY_STORE_DOMAIN` | Shopify store domain |
-
-No long-lived Google service account key is ever stored — auth happens via
-GitHub's own OIDC token exchanged at run time (Workload Identity Federation).
