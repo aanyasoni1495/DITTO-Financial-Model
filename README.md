@@ -1,5 +1,7 @@
 # DITTO Financial Model — Automated Data Pipeline
 
+**https://stalwart-choux-f6a3bc.netlify.app/aop_forecast**
+
 This repo replaces two sets of hand-typed assumptions in DITTO's Google Sheets
 financial model with numbers derived from real Shopify order data:
 
@@ -252,74 +254,9 @@ inspecting the sheet's formulas: `Total Revenue ÷ Total Orders`, not revenue
 
 ---
 
-## 5. Retention model (sBG) — key decisions and results
-
-- **Data source**: only the APPENDIX cohort matrices (count tables +
-  RETENTION % sub-table), never the per-subscriber ID/date export sitting
-  next to them (unreliable).
-- **A maturity filter is essential** — without it, fast-renewing customers
-  get confirmed "not churned" before slow-to-resolve churners reveal
-  themselves, silently flipping the apparent cohort trend direction.
-- **Immediate (cycle-1) churners must stay in the panel** — an earlier
-  version used second-order price as a feature, which silently dropped
-  anyone who churned before a second order.
-- **sBG only** for both plans — the beta-discrete-Weibull alternative was
-  tested and explicitly dropped.
-- **Validated results (last run)**: Monthly — new flat-tier numbers MAE
-  0.0236 vs. old sheet numbers MAE 0.0358 (~34% better), 5-fold time-series
-  CV, 125 held-out points. 1st-year LTV moves from £135.07 to £129.46
-  (worse — the sheet had been too optimistic about months 7–12). 3-Month —
-  directionally supportive but thinner data (4 folds, 42 held-out points,
-  ~38% better on aggregate, individual folds disagree more). The month-9 fix
-  alone improves 1st-year LTV from £126.83 to £129.93.
-- **Not yet built**: a "Retention Tracker" sheet showing ML prediction vs.
-  current sheet prediction vs. actual, frozen at generation date.
-
 ---
 
-## 6. AOP forecast — key decisions and results
-
-Three real bugs were found and fixed by validating against actual real
-months, in order:
-
-1. **Wrong denominator** — initially assumed "orders" meant new signups
-   only; it's actually total orders (new + renewals).
-2. **List price vs. actual amount paid** — discounts are large and common
-   (confirmed: one real month's AOP was £41.87 using actual amounts paid,
-   vs. £56.81 if list price were wrongly used).
-3. **First-order discount doesn't carry to renewals** — subscribers renew at
-   the recurring price locked in at signup, not their discounted first-order
-   price, and not the current list price either. Fixed by matching each
-   subscriber's actual renewal orders to their own real recurring price.
-
-**Why current mix isn't just "last month's acquisition mix":** new-signup
-mix has swung hard (from ~4% 3-Month at launch to ~78%+ later), but the
-active base includes everyone who ever signed up, most of whom joined when
-Monthly dominated. `estimate_current_mix.py` projects every historical
-cohort forward through the live retention curve to estimate who's actually
-still active today, rather than assuming the whole base looks like this
-month's newest signups.
-
-**Validation (typically ~4-5% average error, confidence HIGH)** — re-checked
-every run against every known real historical month via time-series backtest
-(the model never sees the future) plus rolling-origin cross-validation.
-Numbers move slightly run to run as more real months accumulate; check
-`outputs/aop_report.md` for the current figures.
-
-**Known limitation**: the pipeline's own single recommendation
-(`run_aop_pipeline.py`) holds plan mix FIXED going forward, matching the
-sheet's own flat B8/B9 assumption. A mix-shift trend model (log-ratio
-regression) was built and deliberately rejected — validated at only ~14%
-average error / LOW confidence, too uncertain given the trend was still
-accelerating with limited history at the time.
-
-**The 3-month oscillation in the forecast is real, not a bug** — 3-Month
-subscribers renew quarterly, so months where more of them land show a higher
-blended AOP. The same pattern shows up in the real historical data.
-
----
-
-## 7. If something breaks
+## 5. If something breaks
 
 - **A workflow step fails**: click into the failing step in the Actions run
   for the actual Python traceback — usually a missing/misnamed GitHub secret,
