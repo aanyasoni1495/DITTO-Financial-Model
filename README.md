@@ -1,6 +1,6 @@
 # DITTO Financial Model — Automated Data Pipeline
 
-**https://stalwart-choux-f6a3bc.netlify.app/aop_forecast**
+**https://ditto-financial-ml-model.vercel.app/aop_forecast.html**
 
 This repo replaces two sets of hand-typed assumptions in DITTO's Google Sheets
 financial model with numbers derived from real Shopify order data:
